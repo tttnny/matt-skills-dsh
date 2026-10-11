@@ -7,28 +7,18 @@ Interview the user relentlessly until you reach a shared understanding. Map this
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-> **核心原则：把沟通对象当产品负责人，只聊业务结果，不谈代码实现。**
+> **Core Principle: Treat the communication partner as a product owner, and focus solely on business outcomes, not code implementation.**
 >
-> - **视角落点**：只确认**用户能感知的行为**（页面表现、交互体验、业务流程），屏蔽底层工程细节（接口、依赖库、实现模块）。
-> - **语言脱敏**：问题中杜绝代码片段、文件路径及未经解释的专业黑话，统一用业务语言交流。
-> - **技术翻译**：若底层选型影响重大，先讲**"对用户有什么影响"**，再确认**"业务上怎么取舍"**。
+> - **Perspective Focus**: Only confirm **user-perceivable actions** (page appearance, interaction experience, business processes), and exclude underlying engineering details (APIs, dependencies, implementation modules).
+> - **Language Neutralization**: Avoid code snippets, file paths, and unexplained technical jargon in questions; use business language consistently.
+> - **Technical Translation**: If low-level choices have significant impact, first explain **"how it affects the user"**, then determine **"how to make trade-offs in business terms"**.
 
-一轮就是一次 `grilling_form` 调用：整条 frontier 都进这一次调用，别再把这一轮写成散文；它是本轮**唯一且最后一次**调用。每道题怎么写、哪些写法会被当场拒收，以工具自己的说明为准；这里只讲怎么把问题问好：
+Each round is a single `grilling_form` call: the entire frontier enters this one call, so don't write the round as prose. This is the **only and final** call for the round. How each question should be written and which approaches will be rejected immediately are governed by the tool's own instructions.
 
-- 只确认用户能感知的行为，问题里用业务语言，不出现字段名、工具名这类内部词汇；
-- 一道题只问一件事，共用背景与被问的事分开：背景写进题目自己的说明段，每个候选自己的代价写在该候选自己的话里；
-- 选项名写成「同意即可接受」的肯定句：用户勾它就是选了你的推荐，而不是在否定这道题；
-- 推荐项放最前并标上推荐：它默认勾上、也算那题已作答，只标你真心会选的；
-- 开放题不给候选，用户会在那个自填框里答；每题都能勾选加自填，勾选可多选。
-
-Word each question so agreeing means picking your recommended option, not rejecting the question.
-
-投出即结束本轮：用户会在自己的输入框里作答，那条发言作为**下一条用户消息**到达。不要等它、不要把表单当成已经有了答案、也不要替用户把答案填上。入参被拒时这一轮**不会**结束：照违规清单改完，把同一次调用重投一遍；被拒不是改写法的理由，别退回散文。
+Submission ends the round: the user will respond in their input box, and that message becomes the **next user message**. Do not wait for it, do not treat the form as already answered, and do not pre-fill answers on behalf of the user. The round does **not** end when input is rejected: fix according to the violation list and resubmit the same call. Rejection never justifies a prose rewrite: do not revert to narrative style.
 
 Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
 Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
 
-> **The session is done when the frontier is empty**: every branch of the design tree visited, nothing left silently assumed. 本会话派遣过的**每一个子代理也都已结算**：只要还有一个没回来，`frontier` 空了也不作数，不得当成最终共识、不得向用户确认或据此行动；先等它结算（结果可能推翻已定下来的决定、需要重开一部分树）。
->
-> Do not act on it until the user confirms you have reached a shared understanding.
+The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.
