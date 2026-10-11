@@ -1,0 +1,5 @@
+interface:
+  display_name: "Implement Spec (Agent Teams)"
+  short_description: "Implement the result of /to-spec and /to-tickets in code with DSH Agent Teams."
+policy:
+  allow_implicit_invocation: false
