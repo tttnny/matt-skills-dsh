@@ -42,11 +42,11 @@ Done when the branch exists and the tickets' base commit is on it.
 
 The board is the single source of truth for what can start; the tracker is only where the graph came from.
 
-Create one task per ticket, with `blocked_by` naming the tickets that must land first. An implementer's ticket is not done when it reports, it is done when its work is merged, so the board task is completed by you at the merge (step 7), not by the implementer.
+Create one task per ticket with `team_task_create`, `blocked_by` naming the tickets that must land first. An implementer's ticket is not done when it reports, it is done when its work is merged, so the board task is completed by you at the merge (step 7) with `team_task_update`, not by the implementer: the merger cannot close it, because only a task's owner or the Team Lead may transition one.
 
 Done when every ticket has a board task and the `blocked_by` edges match the graph you wrote in step 1.
 
-### 5. Fix the roster before you staff anything
+### 5. Create the dedicated merger
 
 Create the **dedicated merger teammate** now, once, and keep it for the whole run. Every merge in step 7 goes to this one teammate: same standards, same context, one member.
 
@@ -54,21 +54,24 @@ Done when the merger exists and you have told it how you will hand it work.
 
 ### 6. Staff the frontier, one teammate per ticket
 
-Spawn one teammate per ready ticket. Each gets a complete, self-contained task: it starts with no history, so everything it needs must be in the prompt.
+For each ready ticket, create its worktree and branch from the integration branch before you spawn anyone into it: a teammate that has to build its own workspace starts by paying for setup it was not asked to do, and one that starts on the wrong base lands work in the wrong place.
+
+Spawn one teammate per ready ticket with `spawn_teammate`. Each gets a complete, self-contained task: it starts with no history, so everything it needs must be in the prompt.
 
 Each implementer's prompt carries:
 
 - its board task id, and which ticket it came from (a context pointer, not a copy);
+- an instruction to confirm its worktree is based on the integration branch, and to reset onto it if not;
 - the worktree path and branch to work in, and the integration branch to base on;
 - an instruction to call the Skill tool with `tdd` and build the ticket red-green;
 - an instruction to merge the integration branch tip into its own branch before reporting done, so landing it is a fast-forward;
 - an instruction to report back to `lead` with: branch, commit, files changed, and any acceptance criterion it did not meet.
 
-Done when every ready ticket has a teammate working on it and each one holds the pointers above.
+Done when every ready ticket has a worktree, a teammate working in it, and each one holds the pointers above.
 
 ### 7. Merge each finished ticket with the dedicated merger
 
-A teammate reporting done is not a landed ticket. Hand the finished branch to the **dedicated merger**, which merges it into the integration branch and resolves conflicts.
+A teammate reporting done is not a landed ticket. Hand the finished branch to the **dedicated merger** with `send_message`, and let it merge into the integration branch and resolve conflicts.
 
 Then complete that ticket's board task. Only the merged state counts.
 
@@ -102,5 +105,5 @@ Done when no worktree from this run is left behind and every ticket is resolved.
 
 - **Waiting on a member.** Check `list_agents` first: `wait_agent` observes changes that happen after it is called, and returns immediately with nothing when no member is running. If the member you need is inactive, `send_message` wakes it, then wait.
 - **Inactive is not done.** It only means no turn is executing. Read the board and the member's report for what actually happened.
-- **A stale member.** Interrupt it; its inbox is preserved. Send it the correction and let it continue. Spawning a replacement to do the same work loses the work in flight.
+- **A stale member.** `interrupt_agent` it; its inbox is preserved. Send it the correction with `send_message` and let it continue. Spawning a replacement to do the same work loses the work in flight.
 - **A blocked ticket.** Never staff one, even when a member is idle.

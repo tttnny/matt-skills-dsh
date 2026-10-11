@@ -8,7 +8,7 @@ Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 - **Standards**: does the code conform to this repo's documented coding standards?
 - **Spec**: does the code faithfully implement the originating issue / spec?
 
-This is the **Agent Teams** form of `/code-review`. Each axis runs as its own **teammate**, so the two reviews don't pollute each other's context, and both are listable: you can wait on them without blocking, and interrupt one that has gone sideways. Reach for this form whenever the Agent Teams tools are available.
+Each axis runs as its own **teammate**, so the two reviews don't pollute each other's context, and both are listable: you can wait on them without blocking, and interrupt one that has gone sideways. Reach for this form whenever the Agent Teams tools are available.
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
@@ -63,21 +63,21 @@ Done when the standards list is fixed and you have the baseline in hand to paste
 
 ### 4. Spawn the two reviewer teammates
 
-Create one teammate per axis, each with a complete, self-contained task: it starts with no history, so the brief must hold everything it needs. Name them so the axis is obvious (`review-standards`, `review-spec`).
+Create one teammate per axis with `spawn_teammate`, each with a complete, self-contained task: it starts with no history, so the brief must hold everything it needs. Name them so the axis is obvious (`review-standards`, `review-spec`).
 
 **Standards teammate's task** carries:
 
 - the full diff command and commit list;
 - the list of standards-source files you found in step 3, **plus the smell baseline from step 3 pasted in full** (the teammate has no other access to it);
 - the brief: "Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-- an instruction to report the findings back to `lead` as its closing message, and that it is a leaf.
+- an instruction to report the findings back to `lead` as its closing message.
 
 **Spec teammate's task** carries:
 
 - the diff command and commit list;
 - the path or fetched contents of the spec;
 - the brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-- an instruction to report the findings back to `lead` as its closing message, and that it is a leaf.
+- an instruction to report the findings back to `lead` as its closing message.
 
 If the spec is missing, spawn only the Standards teammate and note this in the final report.
 

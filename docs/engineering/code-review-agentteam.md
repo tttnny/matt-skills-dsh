@@ -10,7 +10,7 @@ Type `/code-review-agentteam`, or the agent reaches for it automatically when a 
 
 | Your situation | Reach for |
 | --- | --- |
-| Reviewing a diff on a harness with Agent Teams | `/code-review-agentteam` |
+| Reviewing a diff on a [harness](https://www.aihero.dev/ai-coding-dictionary/harness) with Agent Teams | `/code-review-agentteam` |
 | Reviewing a diff anywhere else | [code-review](https://aihero.dev/skills-code-review) |
 | A single ticket's work before it lands | [implement](https://aihero.dev/skills-implement), which runs both axes per ticket |
 

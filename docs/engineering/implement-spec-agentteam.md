@@ -31,19 +31,13 @@ The optional exploration step is optional to *schedule*, not to *wait for*. If y
 
 Each ticket gets its own teammate, its own git worktree, and its own branch. The merger is different: you create it once at the start and hand it every merge for the whole run, so merge standards stay consistent and no merge waits on a member being spawned.
 
-A teammate reporting done is not a ticket landed. The board task completes when the merger has merged the branch, because the merged state is the only state that counts.
-
-## Working around the roster limit
-
-Teammate slots are never freed. A member that finished, one you interrupted, and even one that failed to create all keep their slot, so the roster is a budget you spend once, at the start. Size it before you staff anything: every ticket in flight, plus the merger, plus whoever reviews at the end.
-
-When a run has more tickets than slots, staff a batch, and let those teammates take the next batch as they finish. The alternative, one new teammate per ticket, stops dead the moment the tickets outnumber the slots.
+A teammate reporting done is not a ticket landed. The board task completes when the merger has merged the branch, because the merged state is the only state that counts: the orchestrator closes it, since only a task's owner or the Team Lead may transition it.
 
 ## Common questions
 
 **A ticket's tests passed in its worktree, but it silently skipped the only test that mattered.**
 
-A worktree is a complete *checkout*, not a complete *environment*. Anything the repo deliberately keeps untracked does not come with it: gitignored fixtures, local databases, large corpora, credentials. One user hit exactly this, and the test was written to skip itself when its corpus was absent, which is the right behaviour for a clean checkout and CI. The ticket whose whole purpose was to re-read that corpus would have gone green having tested nothing.
+A worktree is a complete *checkout*, not a complete [environment](https://www.aihero.dev/ai-coding-dictionary/environment). Anything the repo deliberately keeps untracked does not come with it: gitignored fixtures, local databases, large corpora, credentials. One user hit exactly this, and the test was written to skip itself when its corpus was absent, which is the right behaviour for a clean checkout and CI. The ticket whose whole purpose was to re-read that corpus would have gone green having tested nothing.
 
 Give the implementer the escape hatch when you read the ticket: a ticket whose verification depends on untracked material runs in the main checkout, not a worktree. Isolation is the default worth having; it just cannot be unconditional.
 
@@ -51,7 +45,7 @@ Give the implementer the escape hatch when you read the ticket: a ticket whose v
 
 Against a tracker whose tickets close when the pull request merges, the blocked-by count stays up for the whole run, because the run ends at the merge. On a four-ticket graph one orchestrator watched two tickets sit blocked the entire time though their blocker had merged early.
 
-The board is what fixes this. The tracker supplies the starting graph; from then on the frontier comes from the board, where a ticket is done when its merger lands it. That is also why the skill has the merger complete the board task rather than the implementer.
+The board is what fixes this. The tracker supplies the starting graph; from then on the frontier comes from the board, where a ticket is done once its merge has landed. That is also why the board task is closed by the orchestrator at the merge rather than by the implementer: a task only its owner or the Team Lead can transition.
 
 **The review loop kept going for hours, and kept finding things.**
 
