@@ -18,10 +18,6 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
 
-## Claiming a ticket
-
-Used by `/wayfinder` and `/implement-spec`. A ticket's **claim** is its `Status:` line, written before any work on it: set it to `claimed` and save. A ticket still reading `ready-for-agent` is unclaimed, and resolving it releases the claim.
-
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
@@ -29,6 +25,6 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
 - **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed (see **Claiming a ticket**); first by number wins.
-- **Claim**: see **Claiming a ticket**.
+- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.

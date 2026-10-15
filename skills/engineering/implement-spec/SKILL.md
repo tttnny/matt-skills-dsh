@@ -8,11 +8,9 @@ You have been provided a spec. This spec should have tickets associated with it,
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-The goal is the entire spec implemented on a single **integration branch**, with every ticket the run takes resolved the way the issue tracker closes work.
+The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
 
 The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
-
-Each ticket the run takes is **claimed** on the tracker before its implementer starts, so a second run of the same spec skips what is already in flight instead of building it twice. The run resolves only the tickets it took.
 
 Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the spec, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
 
@@ -20,23 +18,23 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 ## Steps
 
-1. Read the spec and tickets to understand the task graph. A ticket another run has already claimed is not yours to take: leave it out and say which tickets you left out.
+1. Read the spec and tickets to understand the task graph.
 
 2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration. **When you take this step, its notes gate the run: no implementer starts until the exploration subagent has reported back and the notes exist.**
 
 3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 6 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
-4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. **Claim each ticket as you staff it**, before its implementer starts, the way the tracker doc's **Claiming a ticket** section says, and read the ticket back to confirm the claim landed: if it did not, tell the user rather than working the ticket unclaimed. If step 2 was taken, don't start this until the exploration notes exist. Each implementer subagent:
+4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. If step 2 was taken, don't start this until the exploration notes exist. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
    - calls the Skill tool with `tdd` to build the ticket;
    - merges the integration branch tip into its own branch before reporting done
 
 5. Create the **dedicated merger subagent** once, before the first merge, and give it every finished branch to merge for the rest of the run, rather than a new merger per branch. One merger for the whole run keeps merge standards consistent, and creating it before the first merge means no merge waits on a subagent being spawned.
 
-6. As each **implementer subagent** completes, send its branch to the **dedicated merger subagent** to merge to the integration branch. Then, if this changes the **frontier** of available tickets, claim the new tickets and kick off more **implementer subagents** to work on them. This allows for maximum concurrency.
+6. As each **implementer subagent** completes, send its branch to the **dedicated merger subagent** to merge to the integration branch. Then, if this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
 
 7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
 
-8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket this run took the way the issue tracker closes work, and report the integration branch. Resolving releases the claim, so leave every ticket the run did not take untouched.
+8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-9. Clean up all **implementer subagent** worktrees, and release the claim on any ticket the run took but did not resolve.
+9. Clean up all **implementer subagent** worktrees.

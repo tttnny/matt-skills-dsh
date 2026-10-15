@@ -8,11 +8,9 @@ You have been provided a spec. This spec should have tickets associated with it,
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-The goal is the entire spec implemented on a single **integration branch**, with every ticket the run takes resolved the way the issue tracker closes work.
+The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
 
 The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
-
-Each ticket the run takes is **claimed** on the tracker before its teammate starts, so a second run of the same spec skips what is already in flight instead of building it twice.
 
 This is the **Agent Teams** form. Every worker is a durable **teammate**: a member you can list, wait on, wake with a message, and interrupt. Ticket state lives on the shared **task board**, which every member reads. Communicate through **context pointers** (the spec, the ticket, the board, the shared notes, earlier commits) rather than pasted summaries.
 
@@ -22,7 +20,7 @@ Reach for this form whenever the Agent Teams tools are available. Every worker b
 
 ### 1. Read the spec and the tickets
 
-Read the spec and every ticket, and write down the graph: which ticket blocks which. A ticket another run has already claimed is not yours to take: leave it out and say which tickets you left out.
+Read the spec and every ticket, and write down the graph: which ticket blocks which.
 
 Done when you can name every ready ticket and its blockers without going back to the tracker.
 
@@ -42,7 +40,7 @@ Done when the branch exists and the tickets' base commit is on it.
 
 ### 4. Put the graph on the shared task board
 
-The board is the single source of truth for what can start; the tracker only supplies the graph, and carries the claim that tells another run to leave a taken ticket alone.
+The board is the single source of truth for what can start; the tracker is only where the graph came from.
 
 Create one task per ticket with `team_task_create`, `blocked_by` naming the tickets that must land first. An implementer's ticket is not done when it reports, it is done when its work is merged, so the board task is completed by you at the merge (step 7) with `team_task_update`, not by the implementer: the merger cannot close it, because only a task's owner or the Team Lead may transition one.
 
@@ -57,8 +55,6 @@ Done when the merger exists and you have told it how you will hand it work.
 ### 6. Staff the frontier, one teammate per ticket
 
 For each ready ticket, create its worktree and branch from the integration branch before you spawn anyone into it: a teammate that has to build its own workspace starts by paying for setup it was not asked to do, and one that starts on the wrong base lands work in the wrong place.
-
-**Claim each ticket before its teammate starts**, the way the tracker doc's **Claiming a ticket** section says, and read the ticket back to confirm the claim landed: if it did not, tell the user rather than working the ticket unclaimed.
 
 Spawn one teammate per ready ticket with `spawn_teammate`. Each gets a complete, self-contained task: it starts with no history, so everything it needs must be in the prompt.
 
@@ -99,11 +95,11 @@ Done when every raised finding is either fixed or answered.
 
 ### 10. Close out
 
-If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket this run took the way the issue tracker closes work, and report the integration branch. Resolving releases the claim, so leave every ticket the run did not take untouched.
+If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-Then remove every implementer worktree you created, release the claim on any ticket the run took but did not resolve, and leave the integration branch standing.
+Then remove every implementer worktree you created, and leave the integration branch standing.
 
-Done when no worktree from this run is left behind, no claim it took is still held, and every ticket it took is resolved.
+Done when no worktree from this run is left behind and every ticket is resolved.
 
 ## Working the team
 

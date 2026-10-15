@@ -1,6 +1,6 @@
 ## What it does
 
-`implement-spec` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run. The orchestrating [agent](https://www.aihero.dev/ai-coding-dictionary/agent) hands each ticket to an implementer [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) working in its own git worktree, merges each finished branch into a single **integration branch**, runs [code-review](https://aihero.dev/skills-code-review) over the result, and resolves the tickets. Each ticket is **claimed** on the tracker before its implementer starts, so a second run of the same spec skips what is already in flight instead of building it twice.
+`implement-spec` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run. The orchestrating [agent](https://www.aihero.dev/ai-coding-dictionary/agent) hands each ticket to an implementer [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) working in its own git worktree, merges each finished branch into a single **integration branch**, runs [code-review](https://aihero.dev/skills-code-review) over the result, and resolves the tickets.
 
 It reads the tickets as a **task graph**, not a list. Blocking edges decide what can start, so at any moment there is a **frontier** of tickets whose blockers have all landed, and every ticket on the frontier runs at once. That is the difference from working the tickets one by one. The graph's shape sets the pace, not the tickets' order on the tracker.
 
@@ -33,14 +33,6 @@ The tracker decides whether a pull request exists at all. If your tracker closes
 
 Implementers talk to the orchestrator through [context pointers](https://www.aihero.dev/ai-coding-dictionary/context-pointer) (the spec, the ticket, shared exploration notes, earlier commits) rather than pasted summaries. This keeps each subagent's prompt small and leaves room in the orchestrator's window for the graph.
 
-## Claiming the tickets
-
-A ticket is claimed on the tracker before any work on it: the assignee on GitHub and GitLab, the ticket's `Status:` line on a local markdown tracker. The run claims each ticket as it staffs it, resolves it at the end, and never takes over a ticket someone else has claimed: that one is left out of the run and named in the report.
-
-That is what makes two runs of one spec safe. Without it, both runs read the same frontier, build the same tickets in separate worktrees, and close them twice. With it, the second run picks up only what the first has not taken.
-
-A claim is a coordination signal, not a lock. It says someone is on the ticket; it cannot stop a run starting in the same second from reading that ticket as free.
-
 ## Common questions
 
 **How is this different from running `/implement` on each ticket myself?**
@@ -50,10 +42,6 @@ This is the question the skill exists to answer. Before it shipped, people kept 
 **Does it need GitHub? I want it to stop at the branch.**
 
 No, not any more. One user who liked the in-progress version had exactly this complaint: "it creates a PR at the end, which requires an online repository like GitHub. I wish it could do the same work offline and stop at the branch where all the work is merged." The run now ends on the integration branch. A PR opens only when the configured tracker closes work through PRs or you ask for one, so on a local markdown tracker the run ends with every ticket resolved and the work merged on the branch.
-
-**I stopped a run midway, and now the tickets still look taken.**
-
-They are. Nothing releases a claim when a run dies: the tickets that run was holding stay claimed, so the next run reads them as another run's and skips them. Clear the claims, by unassigning the tickets or setting their status back, to put them on the frontier again. Tickets the run never reached were never claimed, so only the ones it was holding need clearing.
 
 **Its review and fix loop ran for hours, or kept "fixing" tickets that hadn't been built yet.**
 
@@ -85,7 +73,6 @@ A worktree holds only what git tracks. Tests that read gitignored fixtures, loca
 - A ticket starts as soon as its last blocker lands on the integration branch, not when the whole run ends.
 - Every ticket's trace shows `tdd` running, with a failing test before the code.
 - Merges into the integration branch are fast-forwards, not conflict resolutions.
-- Each ticket an implementer is working is claimed on the tracker, and the tickets the run left to another run are not.
 - The run ends on one branch with every ticket resolved, and a PR only if your tracker wanted one.
 
 ## Where it fits
