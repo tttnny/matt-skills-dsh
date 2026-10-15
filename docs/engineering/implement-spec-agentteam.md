@@ -1,6 +1,6 @@
 ## What it does
 
-`implement-spec-agentteam` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run, the way [implement-spec](https://aihero.dev/skills-implement-spec) does, but every worker is a durable **teammate** rather than a fire-and-forget [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent). You can list who is running, wait on one member without blocking the rest, wake a member that has gone quiet with a message, and interrupt a member that has gone sideways.
+`implement-spec-agentteam` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run, the way [implement-spec](https://aihero.dev/skills-implement-spec) does, but every worker is a durable **teammate** rather than a fire-and-forget [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent). You can list who is running, wait on one member without blocking the rest, wake a member that has gone quiet with a message, and interrupt a member that has gone sideways. Each ticket is **claimed** on the tracker before its teammate starts, so a second run of the same spec skips what is already in flight instead of building it twice.
 
 That listability is the defining constraint. On the sibling skill a worker that goes wrong is a worker you abandon: you cannot see it, steer it, or stop it, so the only recovery is to spawn another and repeat the work. Here the orchestrator steers the worker that is already running, and the ticket graph lives on a **shared task board** that every member reads, so no one has to hold the frontier in their head.
 
@@ -33,6 +33,14 @@ Each ticket gets its own teammate, its own git worktree, and its own branch. The
 
 A teammate reporting done is not a ticket landed. The board task completes when the merger has merged the branch, because the merged state is the only state that counts: the orchestrator closes it, since only a task's owner or the Team Lead may transition it.
 
+## Claiming the tickets
+
+Each ticket is claimed on the tracker before its teammate starts: the assignee on GitHub and GitLab, the ticket's `Status:` line on a local markdown tracker. A ticket another run has claimed is left out of the run and named in the report.
+
+The board is what this run starts from; the claim is what keeps a second run of the same spec off the tickets this one has taken. Without it, both runs read the same frontier, build the same tickets in separate worktrees, and close them twice.
+
+A claim is a coordination signal, not a lock: it cannot stop a run starting in the same second from reading that ticket as free.
+
 ## Common questions
 
 **A ticket's tests passed in its worktree, but it silently skipped the only test that mattered.**
@@ -59,12 +67,17 @@ Worktrees postpone collisions to merge time rather than preventing them. A block
 
 A compound `git worktree remove … && git branch -d …` dies as a whole when the second half is refused by a branch guard, so the first half never runs either. Run each removal as its own command. Never force a deletion: once integration history has been rewritten (cherry-picked for a linear pull request, or amended after review), the implementer branch is no longer an ancestor, so `-d` refuses it, and discarding that branch is the user's call, not the skill's.
 
+**I stopped a run midway, and now the tickets still look taken.**
+
+They are. Nothing releases a claim when a run dies, so the next run reads those tickets as another run's and skips them. Clear the claims, by unassigning the tickets or setting their status back, to put them on the frontier again.
+
 ## It's working if
 
 - Every teammate you need is visible in one list, and you can say which ticket each one holds.
 - You steer a teammate that went wrong instead of respawning it, and its history comes with it.
 - The number of members you created is the number you budgeted at the start, not one more per ticket.
 - The frontier comes from the board, so a ticket unblocks the moment its merge lands rather than at the end of the run.
+- Each ticket a teammate holds is claimed on the tracker, and the tickets the run left to another run are not.
 - No implementer started before the exploration notes existed.
 
 ## Where it fits
