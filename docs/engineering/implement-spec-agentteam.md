@@ -29,7 +29,9 @@ The optional exploration step is optional to *schedule*, not to *wait for*. If y
 
 ## One member per ticket, and one merger for the run
 
-Each ticket gets its own teammate, its own git worktree, and its own branch. The merger is different: you create it once at the start and hand it every merge for the whole run, so merge standards stay consistent and no merge waits on a member being spawned.
+Each ticket gets its own teammate, its own git worktree, and its own branch, and the worktree is cut when the ticket joins the frontier, from the integration branch tip of that moment. A blocked ticket holds no worktree: a base cut before its blockers landed is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict resolution.
+
+The merger is different: you create it once at the start and hand it every merge for the whole run, so merge standards stay consistent and no merge waits on a member being spawned. A report goes to it the moment the teammate sends it.
 
 A teammate reporting done is not a ticket landed. The board task completes when the merger has merged the branch, because the merged state is the only state that counts: the orchestrator closes it, since only a task's owner or the Team Lead may transition it.
 
@@ -65,6 +67,7 @@ A compound `git worktree remove … && git branch -d …` dies as a whole when t
 - You steer a teammate that went wrong instead of respawning it, and its history comes with it.
 - The number of members you created is the number you budgeted at the start, not one more per ticket.
 - The frontier comes from the board, so a ticket unblocks the moment its merge lands rather than at the end of the run.
+- A worktree appears when its ticket joins the frontier, cut from the branch tip of that moment, and never sits waiting on a blocker.
 - No implementer started before the exploration notes existed.
 
 ## Where it fits

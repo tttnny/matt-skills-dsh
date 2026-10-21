@@ -54,15 +54,17 @@ Done when the merger exists and you have told it how you will hand it work.
 
 ### 6. Staff the frontier, one teammate per ticket
 
-For each ready ticket, create its worktree and branch from the integration branch before you spawn anyone into it: a teammate that has to build its own workspace starts by paying for setup it was not asked to do, and one that starts on the wrong base lands work in the wrong place.
+For each ready ticket, and only those, read the integration branch tip as it stands right now, create the worktree and branch from that commit, then spawn a teammate into it. A teammate that has to build its own workspace starts by paying for setup it was not asked to do, and one that starts on the wrong base lands work in the wrong place.
+
+A blocked ticket holds no worktree yet. One cut before its blockers land is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict resolution.
 
 Spawn one teammate per ready ticket with `spawn_teammate`. Each gets a complete, self-contained task: it starts with no history, so everything it needs must be in the prompt.
 
 Each implementer's prompt carries:
 
 - its board task id, and which ticket it came from (a context pointer, not a copy);
-- an instruction to confirm its worktree is based on the integration branch, and to reset onto it if not;
-- the worktree path and branch to work in, and the integration branch to base on;
+- an instruction to confirm its worktree is based on the integration branch tip it was handed, and to reset onto it if not;
+- the worktree path and branch to work in, the integration branch to base on, and the tip commit its worktree was cut from;
 - an instruction to call the Skill tool with `tdd` and build the ticket red-green;
 - an instruction to merge the integration branch tip into its own branch before reporting done, so landing it is a fast-forward;
 - an instruction to report back to `lead` with: branch, commit, files changed, and any acceptance criterion it did not meet.
@@ -71,7 +73,7 @@ Done when every ready ticket has a worktree, a teammate working in it, and each 
 
 ### 7. Merge each finished ticket with the dedicated merger
 
-A teammate reporting done is not a landed ticket. Hand the finished branch to the **dedicated merger** with `send_message`, and let it merge into the integration branch and resolve conflicts.
+A teammate reporting done is not a landed ticket. The moment one reports, hand the finished branch to the **dedicated merger** with `send_message`, ahead of whatever else you were about to do, and let it merge into the integration branch and resolve conflicts. A report left waiting holds back every ticket blocked behind it and widens the gap between that worktree's base and the integration branch.
 
 Then complete that ticket's board task. Only the merged state counts.
 
@@ -81,7 +83,7 @@ Done when the ticket's branch is on the integration branch and its board task is
 
 ### 8. Re-read the board and staff the new frontier
 
-Merging a ticket unblocks others. Re-read the board, and spawn a teammate for each newly ready ticket, exactly as in step 6.
+Merging a ticket unblocks others. Re-read the board and the integration branch tip as the merge left it, then spawn a teammate for each newly ready ticket, exactly as in step 6, so each new worktree is cut from the merged tip rather than the one the run started on.
 
 Done when no ready ticket is unstaffed and no blocked ticket is staffed.
 
