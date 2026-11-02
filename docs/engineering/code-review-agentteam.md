@@ -2,22 +2,23 @@
 
 `code-review-agentteam` reviews the diff between `HEAD` and a fixed point you name (a commit, a branch, a tag, `main`, `HEAD~5`) along two axes, the way [code-review](https://aihero.dev/skills-code-review) does. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the originating issue or [spec](https://www.aihero.dev/ai-coding-dictionary/spec) asked for.
 
-Every reviewer is a durable **teammate**. You can list both reviewers, wait on one without blocking the other, and interrupt a reviewer that has gone sideways. That matters more here than it does in an implementation run, because a reviewer can wander: asked to find problems, it will always find some, and a review you cannot stop is a review that keeps billing.
+Every reviewer is a durable **teammate**, so you can list both, wait on one without blocking the other, and interrupt a reviewer that has gone sideways. That matters more here than it does in an implementation run, because a reviewer can wander: asked to find problems, it will always find some, and a review you cannot stop is a review that keeps billing. Both reviewers read the same frozen diff, so the tree cannot move under them. When the team is already at its cap, the two axes run one after the other in one context, and the report says they ran unisolated.
 
 ## When to reach for it
 
-Type `/code-review-agentteam`, or the agent reaches for it automatically when a task fits, which is what lets [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) call it as its closing step.
+Type `/code-review-agentteam`, or the agent reaches for it automatically when a task fits, which is what lets [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) call it as its closing step. The Lead runs it: only the Lead can spawn or interrupt a member, so a teammate that needs this review asks the Lead for it.
 
 | Your situation | Reach for |
 | --- | --- |
 | Reviewing a diff on a [harness](https://www.aihero.dev/ai-coding-dictionary/harness) with Agent Teams | `/code-review-agentteam` |
 | Reviewing a diff anywhere else | [code-review](https://aihero.dev/skills-code-review) |
 | A single ticket's work before it lands | [implement](https://aihero.dev/skills-implement), which runs both axes per ticket |
+| A team already at its cap | `/code-review-agentteam`, which then runs both axes in one context and says so in the report |
 
 ## Prerequisites
 
 - **An issue tracker.** The review's Spec axis reads the originating issue from the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
-- **A non-empty diff against a ref that resolves.** Both are checked before any reviewer is spawned, so a typo in the fixed point fails immediately instead of inside two members.
+- **A non-empty diff against a ref that resolves, from a clean tree.** The ref, the diff and the tree are checked before any reviewer is spawned, so a typo in the fixed point fails immediately instead of inside two members. The reviewers can write to your checkout, so the diff is frozen first: the patch goes to a git-ignored path or outside the checkout, and its hash is recorded. Both reviewers read that artifact rather than a command that re-reads a live tree, and the hash is checked again before the reports are presented.
 
 ## The two axes stay separate
 
@@ -39,6 +40,10 @@ Both briefs cap the report at the length the findings need and nothing more, and
 
 Ask the reviewer rather than respawning a fresh one: a teammate answers, and a fresh teammate redoes the reading from scratch. The one thing worth checking first is whether it got the material it was owed. The Standards reviewer needs the standards file list, and the Spec reviewer needs the spec text; if the spec is missing entirely, the skill spawns only the Standards reviewer and says so in the report.
 
+**A reviewer never appeared, and the spawn failed on the team member limit.**
+
+Check the roster before re-firing: two spawns can partially succeed, so one axis may already be running. Re-fire only the axis that is missing. A provider failure leaves a `failed` row with its error in `diagnostics` and burns that name, so the retry needs a new one, and the failed creation still counts against the cap. When the team has no room at all, run the missing axis in one context and say in the report that it ran unisolated. A member stuck in `provisioning` cannot be messaged either, so the same choice applies there: a new name, or run the axis yourself.
+
 **The Standards review flagged things the linter already enforces.**
 
 Its brief says to skip anything tooling enforces, because a finding the linter would have caught costs a reviewer's attention to report and the reader's attention to dismiss. Where it keeps happening, check whether the repo's lint command is actually wired into anything: a rule that no guardrail runs is a rule that reads as a suggestion.
@@ -54,6 +59,8 @@ That is the design, not a failure. The two axes are deliberately separate, so th
 - Findings you act on name their location and the rule or spec line they break.
 - A finding the repo's own tooling already enforces never appears.
 - You can tell, from the report alone, which findings are hard violations and which are judgement calls.
+- Both reviewers started on the same frozen diff.
+- Where the axes shared one context, the report says they ran unisolated.
 
 ## Where it fits
 

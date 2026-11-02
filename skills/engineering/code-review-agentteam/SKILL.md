@@ -8,21 +8,21 @@ Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 - **Standards**: does the code conform to this repo's documented coding standards?
 - **Spec**: does the code faithfully implement the originating issue / spec?
 
-Each axis runs as its own **teammate**, so the two reviews don't pollute each other's context, and both are listable: you can wait on them without blocking, and interrupt one that has gone sideways. Reach for this form whenever the Agent Teams tools are available.
+Each axis runs in its own context, which is what keeps the two reports independent. This skill is the Lead's to run: every member gets the same team tools, but `spawn_teammate` and `interrupt_agent` refuse a teammate, so a teammate that needs this review asks the Lead for it.
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
 ## Process
 
-### 1. Pin the fixed point
+### 1. Pin the fixed point and freeze the diff
 
 Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
 
-Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
+Confirm the fixed point resolves (`git rev-parse <fixed-point>`), the diff is non-empty, and the tree is clean (`git status --porcelain`). A bad ref, an empty diff, or a dirty tree fails here, not inside two teammates.
 
-Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here, not inside two teammates.
+The reviewers can write to your checkout, so the diff can move while the reviews run. Freeze it once: write `git diff <fixed-point>...HEAD` to a patch file under a git-ignored path or outside the checkout, and record the diff hash. Hand both reviewers the artifact, never a command that re-reads a live tree.
 
-Done when the command, the commit list, and a non-empty diff are in hand.
+Done when the patch path, the commit list (`git log <fixed-point>..HEAD --oneline`), and the diff hash are in hand.
 
 ### 2. Identify the spec source
 
@@ -31,7 +31,7 @@ Look for the originating spec, in this order:
 1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
 2. A path the user passed as an argument.
 3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** teammate will skip and report "no spec available".
+4. If nothing is found, ask the user where the spec is.
 
 Done when you have the spec's contents or a clear answer that there is none.
 
@@ -63,41 +63,51 @@ Done when the standards list is fixed and you have the baseline in hand to paste
 
 ### 4. Spawn the two reviewer teammates
 
-Create one teammate per axis with `spawn_teammate`, each with a complete, self-contained task: it starts with no history, so the brief must hold everything it needs. Name them so the axis is obvious (`review-standards`, `review-spec`).
+Create one teammate per axis with `spawn_teammate`, each with a complete, self-contained task. Name them so the axis is obvious (`review-standards`, `review-spec`).
+
+Pass `context: "fresh"` for both. A fork inherits your completed turns, including your own reading of the diff and any finding you have already formed, which is the cross-contamination the two axes exist to prevent.
+
+The team cap counts every teammate the team has ever created, failed creations included, and no name is ever reused, so a full team never makes room again. When the team has no room for both reviewers, run the axes one after the other in your own context and say in the report that they ran unisolated. Check your tool list before reaching for `subagent`: the Agent Teams composition disables it, and a subagent is not a member, so `list_agents` and `interrupt_agent` never reach it.
+
+A spawn that throws leaves a durable `failed` row when the provider failed: `list_agents` shows it with its error in `diagnostics`, its name is burned, and it still counts against the cap. A `Team member limit <n> reached` failure leaves no row at all. Retry only the axis that is missing, under a new name when its row is `failed`.
+
+**Both reviewers are read-only.** They hold `edit` and `write`, so add to each brief: review only, leave the tree alone.
 
 **Standards teammate's task** carries:
 
-- the full diff command and commit list;
-- the list of standards-source files you found in step 3, **plus the smell baseline from step 3 pasted in full** (the teammate has no other access to it);
-- the brief: "Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-- an instruction to report the findings back to `lead` as its closing message.
+- the frozen patch path, and the commit list;
+- the list of standards-source files you found in step 3, plus the smell baseline from step 3 pasted in full; the teammate gets none of your conversation, so anything it needs must be in the brief;
+- the brief: "Open your report with `Standards:`. Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
+- an instruction to end its turn with the findings as its closing message.
 
 **Spec teammate's task** carries:
 
-- the diff command and commit list;
+- the frozen patch path, and the commit list;
 - the path or fetched contents of the spec;
-- the brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-- an instruction to report the findings back to `lead` as its closing message.
+- the brief: "Open your report with `Spec:`. Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+- an instruction to end its turn with the findings as its closing message.
 
-If the spec is missing, spawn only the Standards teammate and note this in the final report.
+If the spec is missing, spawn only the Standards teammate and record the missing Spec axis in the final report.
 
-Done when both teammates are running (or one, when there is no spec) and each holds the brief above.
+Done when every axis you are running has either a spawned teammate (`member.target` with `status` `running` or `inactive`) or a recorded reason it ran unisolated, and each teammate holds the brief above. `inactive` on return only means no turn is executing; it is not a spawn failure and not proof the review finished.
 
-### 5. Collect, waiting properly
+### 5. Collect
 
-For each teammate: `list_agents` first, then `wait_agent` if it is still running. A teammate reports through a message, so a settled member's report is in your inbox, not in a tool result.
+Each reviewer's closing message is delivered to you automatically as a settlement notice when its turn ends; it is not a tool result. The notice names the child by session id, which your tools never show, so the axis label at the top of each report is what tells the two apart. An empty closing message arrives as "It left no closing message."
 
-If a teammate ends without a report, `send_message` wakes it and asks for the findings. Don't spawn a replacement to redo the same review: the report you want is cheaper to ask the existing member for.
+If an active reviewer ends without a report, send it a message asking for the findings. A `failed` or `provisioning` member cannot be messaged at all, so spawn a replacement under a new name or run that axis yourself.
 
 Done when both reports are in hand, or you have recorded which axis produced none and why.
 
 ### 6. Aggregate
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
+Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned, so neither axis can mask the other (see _Why two axes_).
 
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+Before writing, re-check `git status --porcelain` and the diff hash against step 1. If either moved, the reviews describe a tree that no longer exists: say so at the top of the report.
 
-Done when both headings are present and the summary line is written.
+End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Each axis gets its own worst issue, which is what keeps the separation from collapsing into a single ranking.
+
+Done when both headings are present, the tree check is recorded, and the summary line is written.
 
 ## Why two axes
 
