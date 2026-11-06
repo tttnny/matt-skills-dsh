@@ -1,6 +1,6 @@
 ---
 name: implement-spec-agentteam
-description: "Implement the result of /to-spec and /to-tickets in code with DSH Agent Teams: the ticket graph is a shared task board, and each ticket is built by a named subagent the Lead can message and interrupt."
+description: "Implement the result of /to-spec and /to-tickets in code, with each implementer a named subagent the Lead can steer."
 disable-model-invocation: true
 ---
 
@@ -8,98 +8,38 @@ You have been provided a spec. This spec should have tickets associated with it,
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes it.
+The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
 
-The tickets are not a list of steps. They are a **task graph** with blocking relationships between them, so there is always a **frontier** of tickets which are ready to be grabbed.
+The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
 
-This is the **Agent Teams** form. The graph is copied onto the shared **task board**, which is where every later step reads the frontier from, and every worker is a named **subagent** of the Lead: listable, addressable by name, steerable with a message, and stoppable with an interrupt. Talk to them through **context pointers** (the spec, the ticket, the board, the notes, earlier commits) rather than pasted summaries.
+A ticket gets its worktree when it joins the frontier, cut from the integration branch tip of that moment. A blocked ticket holds no worktree: a base cut before its blockers landed is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict resolution.
 
-If `team_task_create` is missing from your tool list, Agent Teams is off for this session. Say so and run `/implement-spec` instead: the same graph, worked without a board.
+Start every subagent with `subagent`, never `subagent_fork`: a fork inherits this conversation's completed turns, which is the context a worker was meant to start without.
+Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the spec, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
+
+**Implementer subagents** run in the background without being asked, so issue their spawns in one message and then stop working. Each completion notice starts a new turn for you, which keeps concurrency at the graph's maximum.
 
 ## Steps
 
-### 1. Read the spec and the tickets
+1. Read the spec and tickets to understand the task graph.
 
-Read the spec and every ticket, and write down the graph: which ticket blocks which.
+2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration. **When you take this step, its notes gate the run: no implementer starts until the exploration subagent has reported back and the notes exist.**
 
-Done when you can name every ready ticket and its blockers without going back to the tracker.
+3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 6 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
-### 2. Create the integration branch
+4. Staff the **frontier**: for each ready ticket, and only for those, use a fresh **implementer subagent**, create the worktree and branch from that commit, and spawn it with `cwd` set to that worktree, so `read`, `edit` and `write` land there along with `bash`. If step 2 was taken, don't start any of this until the exploration notes exist. Each implementer subagent:
+   - confirms its worktree is based on the integration branch tip it was handed, and resets onto it if not;
+   - calls the Skill tool with `tdd` to build the ticket;
+   - merges the integration branch tip into its own branch before reporting done
 
-Create the branch the whole run lands on and stay in that checkout, which is the only one you commit in. If the tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge (a branch with no commits ahead of main cannot open one), marked as closing the spec and its tickets.
+5. Create the **dedicated merger subagent** once, before the first merge, and give it every finished branch to merge for the rest of the run, rather than a new merger per branch. One merger for the whole run keeps merge standards consistent, and creating it before the first merge means no merge waits on a subagent being spawned.
 
-Done when the branch exists, the tickets' base commit is on it, and your checkout is clean.
+6. The moment an **implementer subagent** reports, send its branch to the **dedicated merger subagent**, ahead of whatever else you were about to do. A report left sitting holds back every ticket blocked behind it and widens the gap between that worktree's base and the integration branch. Once the merge lands, re-read the **frontier** and the integration branch tip, then staff each newly ready ticket as in step 4, so concurrency stays at the graph's maximum.
 
-### 3. (optional) Explore first, and wait for it
+An implementer that has gone the wrong way keeps its history: `interrupt_agent` stops its turn, and `send_message` redirects it. That is cheaper than respawning, which pays for the reading again.
 
-If the tickets need facts you do not have (codebase files, external docs), spawn one **exploration subagent** before anyone builds anything. Point it at an absolute notes path inside the integration checkout, under a path that checkout ignores (for example under `.scratch/`), and tell it to report that absolute path.
+7. Once all tickets are complete, call the Skill tool with `code-review-agentteam` on the integration branch. Fix all issues raised by the code review in a single fresh **implementer subagent**.
 
-**No implementer starts while it is still working.** Its notes are what the implementers read. Wait for its completion notice, read the notes, then carry the path in every brief as a context pointer.
+8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-Done when the notes exist and you have read them.
-
-### 4. Copy the graph onto the board
-
-Create one task per ticket with `team_task_create`, walking the graph in dependency order so a blocker always exists before it is named. `blocked_by` takes **board task ids**, not tracker ids, and `write_scopes` takes the workspace-relative paths that ticket expects to write, so two independent-looking tickets that share a file are visible as a collision before either starts.
-
-Keep a mapping from ticket to board task id; every later step uses the board id.
-
-Done when `team_task_list` shows one task per ticket, every blocker resolves to a real task, and the ready tasks are exactly the frontier you wrote down in step 1.
-
-### 5. Staff the frontier
-
-Read `team_task_list({ ready: true })`. For each ready task:
-
-- cut its worktree and branch from the integration branch tip as it stands now (`git worktree add <path> -b <branch> <integration-branch>`), with the path outside the checkout or under one the checkout ignores;
-- spawn one implementer as a **named subagent**: `subagent({ name, description, cwd: <worktree>, prompt })`.
-
-A blocked ticket holds no worktree. A base cut before its blockers landed is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict.
-
-The brief is self-contained, because the child sees none of this conversation. It carries:
-
-- the ticket text and its acceptance criteria, or a pointer to the ticket;
-- the branch name and the integration commit it was cut from;
-- the board task id, and the instruction to claim it with `team_task_get` then `team_task_update({ action: 'claim' })` before writing code;
-- the paths it owns, and the instruction to stay inside its worktree;
-- the absolute notes path from step 3, when there is one;
-- the instruction to drive `tdd`, then report its branch name and test output.
-
-Read the ready tasks' write scopes before staffing and start a batch whose scopes are disjoint. The board only warns about overlaps with tasks already in progress, so it is silent about the batch you are about to start.
-
-Issue every spawn in one message and then stop working. Each completion notice starts a new turn for you.
-
-Done when every ready task has a running implementer and you have no work left that is not a merge.
-
-### 6. Merge on report, then close the task
-
-The moment an implementer reports, merge its branch into the integration branch in your checkout, ahead of anything else you were about to do. A report left sitting holds back every ticket blocked behind it.
-
-Then, in this order: run the repo's build and tests on the merged tip, and only if they pass complete the board task with `team_task_update({ action: 'complete', expected_revision })`. A ticket is done when its work is merged, not when its implementer says so.
-
-Completing a task is what makes its dependents ready. Go back to step 5 with the new frontier.
-
-Done when the board has no task left pending or in progress.
-
-### 7. Close out
-
-Call the Skill tool with `code-review-agentteam` on the integration branch, with the commit the branch was cut from as the fixed point. Fix every raised finding in **one** fresh implementer subagent, on its own worktree, and merge that branch the same way.
-
-Then mark the draft PR ready if there is one, resolve each ticket the way the tracker closes work, remove every worktree and branch of this run, and report the integration branch.
-
-Done when no worktree from this run is left behind and every ticket is resolved.
-
-## Working the team
-
-**Address members by the name you gave them**, and keep names short and stable: `ticket-<id>` reads well in `list_agents` and in the board's owner column.
-
-**Steer before you replace.** A child that has gone the wrong way keeps its history: `interrupt_agent` stops its turn, and `send_message` redirects it with the correction. Respawning throws away everything it read and pays for it again, so it is the last resort.
-
-**Do not poll.** `list_agents` is for naming who is running when you need to message someone, not for watching progress. Completion notices arrive on their own; `wait_agent` is for the case where the next thing you do needs their report inside this same turn.
-
-**The board does not wake anybody.** A task change ends no wait and starts no idle member. When a member must act on a new task, send it a message.
-
-**Replace a dead member on its branch, not from scratch.** A member that stalls or dies leaves its task in progress under its own name, because ownership is never released automatically. Reassign that task to a replacement with `team_task_update({ action: 'reassign', owner })` (the Lead is the only one who can), give the replacement a new name, and tell it to start from the dead member's branch so its commits are not rebuilt.
-
-**You are the only writer to the integration checkout.** Implementers write only inside their worktree; you merge, you test the merged tip, and you close the task. Two members running Git in one checkout contend on one index that nothing guards.
-
-**Delegation depth is host-configured.** Implementers do their own work. Do not tell one to spawn its own workers unless this session allows another level.
+9. Clean up all **implementer subagent** worktrees.

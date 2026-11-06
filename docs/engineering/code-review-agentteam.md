@@ -1,72 +1,106 @@
 ## What it does
 
-`code-review-agentteam` reviews the diff between `HEAD` and a fixed point you name (a commit, a branch, a tag, `main`, `HEAD~5`) along two axes, the way [code-review](https://aihero.dev/skills-code-review) does. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the originating issue or [spec](https://www.aihero.dev/ai-coding-dictionary/spec) asked for.
+`code-review-agentteam` reviews the diff between `HEAD` and a fixed point you name (a commit, a branch, a tag, `main`, `HEAD~5`) along two axes. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the originating issue or [spec](https://www.aihero.dev/ai-coding-dictionary/spec) asked for. Each axis runs as a named [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent), so neither sees the other's reasoning, and you can follow up with either one or stop it.
 
-Each axis runs as its own [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent), and each one is **named**: `standards-reviewer` and `spec-reviewer`. That name is the whole difference from the plain sibling. You can ask a reviewer a follow-up question while it still has the diff in context, and you can stop one that has wandered past the diff. A review you cannot steer is a review that keeps billing.
-
-The diff is pinned to two commit SHAs, the fixed point and the current `HEAD`, and both reviewers are given that range spelled out. Whatever happens to the working tree afterwards cannot change what they read, which matters when the review runs as the closing step of an [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) run.
+The skill never merges or re-ranks the two axes. The report ends with a worst issue *per axis* and declines to name a single winner across them. A change can pass one axis and fail the other. Code that follows every convention but implements the wrong thing passes Standards and fails Spec. Code that does exactly what the [ticket](https://www.aihero.dev/ai-coding-dictionary/ticket) asked but breaks the repo's conventions does the reverse. A blended verdict lets the passing axis hide the failing one.
 
 ## When to reach for it
 
-Type `/code-review-agentteam`, or the agent reaches for it automatically when a task fits, which is what lets [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) call it as its closing step. Whoever runs it spawns the reviewers, so an agent running inside a team can run it too, subject to its delegation depth.
+Type `/code-review-agentteam`, or the agent reaches for it automatically when you ask to review a branch, a PR, work in progress, or anything "since X".
 
 | Your situation | Reach for |
 | --- | --- |
-| Reviewing a diff on a [harness](https://www.aihero.dev/ai-coding-dictionary/harness) with Agent Teams | `/code-review-agentteam` |
-| Reviewing a diff anywhere else | [code-review](https://aihero.dev/skills-code-review) |
-| A single ticket's work before it lands | [implement](https://aihero.dev/skills-implement), which runs both axes per ticket |
-| A finding you want explained rather than re-read | `/code-review-agentteam`, where the reviewer is still there to ask |
+| A diff exists and you want to know if it is built right *and* is the right thing | `code-review-agentteam` |
+| You want bugs hunted in the diff: null paths, races, off-by-one | Claude Code's own built-in review, not this one (see the name clash below) |
+| Nothing is written yet and you want it written test-first | [tdd](https://aihero.dev/skills-tdd) |
+| A whole spec needs building, review included | [implement](https://aihero.dev/skills-implement), which calls this skill itself |
+| The whole codebase has drifted, not one diff | [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) |
+| Something is broken and you do not know why | [diagnosing-bugs](https://aihero.dev/skills-diagnosing-bugs) |
+
+You must supply the fixed point. If you do not, the skill asks for one rather than guessing. Before it spawns anything, it checks that the ref resolves and that the diff is not empty, so a mistyped branch name fails in front of you instead of inside two sub-agents.
 
 ## Prerequisites
 
-- **An issue tracker.** The Spec axis reads the originating issue from the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
-- **A non-empty diff against a ref that resolves.** Both ends are resolved before any reviewer is spawned, so a typo in the fixed point fails immediately instead of inside two children.
-- **A checkout the reviewers leave alone.** They hold `edit` and `write` and work in the same directory tree as you, so both briefs say to review only and commit nothing.
+The Standards axis needs nothing. It reads whatever the repo documents (`CODING_STANDARDS.md`, `CONTRIBUTING.md`, and the like) and falls back on a built-in baseline when the repo documents nothing.
 
-## The two axes stay separate
+The Spec axis needs a spec to exist and be findable. It looks in this order:
 
-The two reports are presented side by side and are never merged or reranked, because a change can pass one axis and fail the other. Code that follows every standard but implements the wrong thing is a **Standards pass, Spec fail**. Code that does exactly what the issue asked but breaks the project's conventions is a **Spec pass, Standards fail**. Reporting them under their own headings is what stops one axis from masking the other.
+1. Issue references in the commit messages (`#123`, `Closes #45`, a GitLab `!67`), fetched through the tracker doc.
+2. A path you pass in as an argument.
+3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch or feature name.
+4. Asking you.
 
-## Reviewers are not a rubber stamp
+Step 1 depends on the tracker doc, which [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) writes. Without it the axis still works if you hand it a path. With no spec at all, the skill skips the Spec sub-agent and the report says "no spec available" rather than inventing requirements.
 
-A reviewer is asked to find problems, so it finds them: some are real, some are judgement calls dressed as violations. The Standards axis is explicit about the difference, carrying the repo's documented standards as hard violations and the Fowler smell baseline as heuristics that a documented repo standard can override.
+## The two axes
 
-That same discipline is what makes the output usable. A findings list that separates "this breaks a rule the repo wrote down" from "this looks like a Feature Envy to me" is one you can act on without re-reading the whole diff yourself.
+| | Standards | Spec |
+| --- | --- | --- |
+| Question | Is it built right? | Is it the right thing? |
+| Reads | The repo's documented standards, plus the smell baseline | The originating issue or spec |
+| Reports | Documented breaches (can be hard), and smells (always judgement calls) | Missing or partial requirements, scope creep, requirements implemented wrongly |
+| Every finding cites | The standards file and the rule, or the named smell plus the hunk | The line of the spec |
+
+This design exists to avoid a generic review skill that does not know your standards. Such a skill flags what is deliberate in your codebase and misses the invariants your codebase depends on. So the repo's own documentation is the [primary source](https://www.aihero.dev/ai-coding-dictionary/primary-source) on the Standards axis, and **the repo always overrides**.
+
+The **smell baseline** sits under the repo's standards. It is twelve code smells from chapter 3 of Fowler's _Refactoring_: Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive Obsession, Repeated Switches, Shotgun Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man, Refused Bequest. Each is a labelled heuristic ("possible Feature Envy"), never a hard violation. Each states what the smell is and how to fix it, so a finding comes with a fix attached rather than only a complaint. Both axes skip anything your linter already enforces.
 
 ## Common questions
 
-**The reviewers wrote a full essay instead of a findings list.**
+**What does it add over `/code-review`?**
 
-Both briefs cap the report at the length the findings need and nothing more, and both ask for the finding with its location and the standard or spec line it breaks. Where a reviewer padded, the brief is what to tighten. Once the review is running, `send_message` to the reviewer costs one message and no re-reading.
+The review is the same two axes over the same diff. The difference is that each axis is a named sub-agent: when a finding is unclear you ask the reviewer that raised it instead of paying for the reading twice, and a reviewer that starts editing or re-reading the whole repo is steered with `interrupt_agent` and a message rather than replaced. [code-review](https://aihero.dev/skills-code-review) is the same skill without those handles.
 
-**One reviewer found nothing, and I don't believe it.**
+**It collides with Claude Code's own `/code-review`. What do I do?**
 
-Ask the reviewer rather than spawning a fresh one: it answers, and a fresh child redoes the reading from scratch. The one thing worth checking first is whether it got the material it was owed. The Standards reviewer needs the standards file list, and the Spec reviewer needs the spec text; if the spec is missing entirely, the skill spawns only the Standards reviewer and says so in the report.
+This is the most reported problem with the skill, and it is not fixed. Claude Code ships its own `/code-review`, which does something different: it hunts bugs in the diff, where this one checks spec compliance and repo standards. When you install this library, one of them wins, and which one depends on how you installed:
 
-**A spawn failed.**
+- **Plugin marketplace.** Every skill gets a `mattpocock-skills:` prefix, and the built-in becomes hard to reach at the unqualified name.
+- **Plain skills install.** The local file wins, and this skill shadows the built-in.
 
-Retry that axis once: two spawns can partially succeed, so one axis may already be running, and only the missing one is worth re-firing. If it fails again, run that axis in your own context and say so in the report, so the reader knows the two reports were not produced under the same isolation.
+One answer is to remove Claude Code's built-in skills entirely. That saves a lot of [context](https://www.aihero.dev/ai-coding-dictionary/context), and the collision stops mattering. The shadowing itself is arguably a Claude Code [harness](https://www.aihero.dev/ai-coding-dictionary/harness) bug (a skill author should be free to name a skill anything), so the other answer is to rename the local copy. `npx skills update` undoes an edit to the frontmatter or a renamed directory. The durable workaround users report is to fork the skill to a new name and drop `code-review` from the managed set. Keep a note of the commit you forked from so you can re-sync by hand.
 
-**The Standards review flagged things the linter already enforces.**
+**Its sub-agents keep invoking `/code-review` again and spawn more agents.**
 
-Its brief says to skip anything tooling enforces, because a finding the linter would have caught costs a reviewer's attention to report and the reader's attention to dismiss. Where it keeps happening, check whether the repo's lint command is actually wired into anything: a rule that no guardrail runs is a rule that reads as a suggestion.
+This is a known open bug. Several people have reproduced it, in more than one harness. The Standards and Spec prompts do not forbid delegation, so a sub-agent can find the skill again and fan out again. One report reached more than 50 agents. The fix people have applied on forks is one line appended to both sub-agent briefs: "Do not invoke `/code-review` or spawn additional agents: perform this review directly." Some prefer to handle it at the harness level so every skill inherits the guard. Neither is in the shipped skill yet. If you run this unattended, watch the agent count.
 
-**A reviewer contradicted the other one.**
+**Should I run it in the same [session](https://www.aihero.dev/ai-coding-dictionary/session) that wrote the code?**
 
-That is the design, not a failure. The two axes are deliberately separate, so the aggregation never picks a winner between them. Where they overlap on the same line you are looking at a genuine trade-off, and the call is yours.
+Prefer a fresh one. As one reader put it: "Same context reviewing itself isn't review, it's confirmation bias with a slash command." An agent that reviews in the authoring session has every assumption that shaped the code in its context. An independent reviewer would not have that context. This is also why people ask for [implement](https://aihero.dev/skills-implement) without its built-in review step, because that step runs the review inside the session that just wrote the diff. The independent version is to invoke `/code-review` yourself from a clean session.
+
+**After every ticket, or once at the end?**
+
+Both work, and the skill does not decide for you. Per-ticket keeps each diff small enough that the Spec axis has one clear spec to check against, which is the mode `implement` uses. Batching to the end of a branch catches interactions between tickets that the per-ticket passes each miss. If you are unsure, review per ticket and run one final pass against the branch point.
+
+**Can I trust the findings?**
+
+Not without checking. Sub-agent output is a hypothesis, not evidence. One team reported a dozen breaking changes that prose-based reviews had missed. The skill combines the two reports as they are, or lightly cleaned. It does not re-verify each claim against the files, so a finding can cite the wrong location or overstate an impact. Read the citation on each finding before you act on it. The skill requires every finding to carry a citation (a standards rule, a smell plus its hunk, or a spec line), and that is what makes the findings checkable.
+
+**Why does it find new problems every single time I run it?**
+
+Each fix adds new code to review, and the judgement-call half of the Standards axis gives different results from run to run. One reader described the loop: "/code-review and /improve-code-architecture always find new stuff every time. I implement fixes, rerun these skills, and again and again." There is no convergence guarantee. Treat a pass as a list of leads. Act on the ones with a cited rule behind them, then stop. Do not run it in a loop until it comes back clean, because it never will.
+
+**Does it review my uncommitted work?**
+
+No. It diffs `<fixed-point>...HEAD`. The three-dot form measures from the merge-base and excludes staged and working-tree changes. If `implement` has not made an interim commit, the review cannot see the work that is about to go into the next commit. Commit first, then review, then amend or add a fixup.
 
 ## It's working if
 
-- Both reviewers exist as named agents while they run, and you can stop either one.
-- A follow-up question goes to the reviewer that raised the finding, not to a new one.
-- The two reports arrive under their own headings, neither summarising the other.
-- Findings you act on name their location and the rule or spec line they break.
-- A finding the repo's own tooling already enforces never appears.
-- You can tell, from the report alone, which findings are hard violations and which are judgement calls.
-- Both reviewers read the same pair of commit SHAs.
+- It refuses to start on a bad ref or an empty diff, before any sub-agent is spawned.
+- A reviewer that wandered off was redirected by message, not respawned.
+- The report arrives as two separate blocks under `## Standards` and `## Spec`, not one merged list.
+- Every Standards finding names either a rule in one of your repo's files or one of the twelve smells, with the hunk quoted; every Spec finding quotes a line of the spec.
+- The closing summary gives a worst issue per axis and declines to pick an overall winner.
+- With no spec available, the Spec block says so instead of listing requirements it inferred from the code.
 
 ## Where it fits
 
-The review half of the [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) flow, and a standalone you can point at any branch, pull request, or work in progress whenever you want a second read on a diff. Its plain-sub-agent sibling is [code-review](https://aihero.dev/skills-code-review).
+`code-review-agentteam` is the review step near the tail of the build chain: `grill-with-docs → to-spec → to-tickets → implement → code-review → retro`. It also stands alone on any branch or PR you point it at.
 
-[ask-matt](https://aihero.dev/skills-ask-matt) routes over the whole set.
+- [implement](https://aihero.dev/skills-implement) is the closest neighbour. It drives the build and calls this skill as its own closing review before committing. [implement-spec](https://aihero.dev/skills-implement-spec) does the same once, over the whole integration branch.
+- [retro](https://aihero.dev/skills-retro) comes after it and tunes it. When a session shows the review missing a class of mistake, `retro` proposes the check or the `CODING_STANDARDS.md` rule the Standards axis then reads.
+- [pr](https://aihero.dev/skills-pr) writes the pull request body once the reviewed work goes up.
+- [to-spec](https://aihero.dev/skills-to-spec) and [to-tickets](https://aihero.dev/skills-to-tickets) produce the document the Spec axis checks against, so a vague spec makes that axis vague.
+- [improve-codebase-architecture](https://aihero.dev/skills-improve-codebase-architecture) is the whole-codebase counterpart, because this skill only looks at one diff.
+
+[ask-matt](https://aihero.dev/skills-ask-matt) routes across the whole set when you are unsure which skill the situation wants.
