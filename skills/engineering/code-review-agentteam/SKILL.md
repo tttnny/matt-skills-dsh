@@ -1,119 +1,78 @@
 ---
 name: code-review-agentteam
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes, Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?), with the two reviews run as DSH Agent Teams teammates. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes, Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?), with each axis run as a named DSH subagent you can message and interrupt. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
-Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
+Two-axis review of the diff between a fixed point and the current commit:
 
 - **Standards**: does the code conform to this repo's documented coding standards?
 - **Spec**: does the code faithfully implement the originating issue / spec?
 
-Each axis runs in its own context, which is what keeps the two reports independent. This skill is the Lead's to run: every member gets the same team tools, but `spawn_teammate` and `interrupt_agent` refuse a teammate, so a teammate that needs this review asks the Lead for it.
+Each axis runs in its own subagent context, which is what keeps the two reports independent. Each reviewer is a **named** child, so you can ask it a follow-up without paying for the reading twice, and stop it when it has gone past the diff.
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-## Process
+## Steps
 
-### 1. Pin the fixed point and freeze the diff
+### 1. Pin the range
 
-Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
+Resolve both ends and keep them: `git rev-parse <fixed-point>` and `git rev-parse HEAD`. If the user named no fixed point, ask for one.
 
-Confirm the fixed point resolves (`git rev-parse <fixed-point>`), the diff is non-empty, and the tree is clean (`git status --porcelain`). A bad ref, an empty diff, or a dirty tree fails here, not inside two teammates.
+Hand out the range, never a moving target. Reviewers get `git diff <fixed>...<head>`, with both SHAs spelled out, so anything you do to the working tree afterwards cannot change what they read. Confirm the range is non-empty before spending two children on it.
 
-The reviewers can write to your checkout, so the diff can move while the reviews run. Freeze it once: write `git diff <fixed-point>...HEAD` to a patch file under a git-ignored path or outside the checkout, and record the diff hash. Hand both reviewers the artifact, never a command that re-reads a live tree.
+Done when you hold two SHAs, a non-empty diff, and the commit list (`git log <fixed>..<head> --oneline`).
 
-Done when the patch path, the commit list (`git log <fixed-point>..HEAD --oneline`), and the diff hash are in hand.
+### 2. Find the spec and the standards
 
-### 2. Identify the spec source
+Look for the originating spec: issue references in the commit messages, a path the user passed, or a spec file under `docs/`, `specs/` or `.scratch/` matching the branch. If there is none, say so, and the Spec axis reviews the commits' stated intent instead.
 
-Look for the originating spec, in this order:
+Then collect the standards sources: every file in the repo that documents how code should be written. When `CODING_STANDARDS.md` or `CONTRIBUTING.md` exists, it is on the list. Add this smell baseline when the repo documents none:
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
-2. A path the user passed as an argument.
-3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is.
+- **Divergent Change**: one module changes for unrelated reasons. → split it.
+- **Shotgun Surgery**: one small change edits many files. → move the parts together.
+- **Feature Envy**: a function uses another object's data more than its own. → move it there.
+- **Data Clumps**: the same two or three fields travel together. → give them a type.
+- **Primitive Obsession**: an int or string stands in for a domain concept. → a small type.
+- **Speculative Generality**: hooks and parameters nothing calls yet. → delete them.
+- **Temporary Field**: a field that only holds a value in some cases. → a narrower object.
+- **Refused Bequest**: a subclass ignores most of what it inherits. → composition.
 
-Done when you have the spec's contents or a clear answer that there is none.
+Done when the spec text (or the finding that there is none) and the standards list are in hand.
 
-### 3. Identify the standards sources
+### 3. Spawn both reviewers in one message
 
-Search the repo for every file that documents how code should be written. When `CODING_STANDARDS.md` or `CONTRIBUTING.md` exists, it must be on the list.
+Two `subagent` calls, issued together, each named for its axis: `standards-reviewer` and `spec-reviewer`.
 
-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+Use `subagent`, not `subagent_fork`. A fork inherits your completed turns, including your own reading of the diff and any suspicion you already formed, which is the contamination the two axes exist to prevent.
 
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. Like any standard here, skip anything tooling already enforces.
+Both briefs are self-contained, because a fresh child sees none of this conversation:
 
-Each smell reads *what it is* → *how to fix*; match it against the diff:
+- **both**: the two SHAs, the diff command, the commit list, `review only, do not modify the working tree or create commits` (they hold `edit` and `write`), and the report shape: open with the axis name, then findings, each naming its file, the hunk, and the rule or spec line it breaks; say "no findings" rather than inventing one;
+- **Standards**: the standards file list and the smell baseline, pasted in full, plus the instruction to separate documented-standard breaches (hard) from smell judgements, and to skip anything the repo's tooling already enforces;
+- **Spec**: the spec text (or the statement that there is none), plus the instruction to report what the spec asked for and the diff does not do, what the diff does and the spec never asked for, and where it departs from the spec's intent.
 
-- **Mysterious Name**: a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
-- **Duplicated Code**: the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
-- **Feature Envy**: a method that reaches into another object's data more than its own. → move the method onto the data it envies.
-- **Data Clumps**: the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
-- **Primitive Obsession**: a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
-- **Repeated Switches**: the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
-- **Shotgun Surgery**: one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
-- **Divergent Change**: one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
-- **Speculative Generality**: abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
-- **Message Chains**: long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
-- **Middle Man**: a class or function that mostly just delegates onward. → cut it, call the real target direct.
-- **Refused Bequest**: a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
+Then stop working. Each completion notice starts a new turn for you.
 
-Done when the standards list is fixed and you have the baseline in hand to paste into the brief.
+Done when both children have been asked for their report.
 
-### 4. Spawn the two reviewer teammates
+### 4. Collect, and steer only if you must
 
-Create one teammate per axis with `spawn_teammate`, each with a complete, self-contained task. Name them so the axis is obvious (`review-standards`, `review-spec`).
+Keep the two reports apart. A reviewer that wandered (started editing, wrote an essay about the codebase, re-read the whole repo) is cheaper to redirect than to replace: `interrupt_agent`, then `send_message` with the correction. It keeps everything it already read.
 
-Pass `context: "fresh"` for both. A fork inherits your completed turns, including your own reading of the diff and any finding you have already formed, which is the cross-contamination the two axes exist to prevent.
+Ask follow-ups of the same child when a finding is unclear. It has the reading in context; a new child repeats it from scratch.
 
-The team cap counts every teammate the team has ever created, failed creations included, and no name is ever reused, so a full team never makes room again. When the team has no room for both reviewers, run the axes one after the other in your own context and say in the report that they ran unisolated. Check your tool list before reaching for `subagent`: the Agent Teams composition disables it, and a subagent is not a member, so `list_agents` and `interrupt_agent` never reach it.
+If a spawn fails, retry that axis once. If it fails again, run that axis yourself and say in the report which axis ran in your context rather than its own.
 
-A spawn that throws leaves a durable `failed` row when the provider failed: `list_agents` shows it with its error in `diagnostics`, its name is burned, and it still counts against the cap. A `Team member limit <n> reached` failure leaves no row at all. Retry only the axis that is missing, under a new name when its row is `failed`.
+Done when you hold two reports.
 
-**Both reviewers are read-only.** They hold `edit` and `write`, so add to each brief: review only, leave the tree alone.
+### 5. Present
 
-**Standards teammate's task** carries:
+Under two headings, verbatim findings, never merged or re-ranked: a change can pass one axis and fail the other, and running them under one summary is how one axis masks the other. Close with a short verdict: mergeable, or the findings that must be fixed first.
 
-- the frozen patch path, and the commit list;
-- the list of standards-source files you found in step 3, plus the smell baseline from step 3 pasted in full; the teammate gets none of your conversation, so anything it needs must be in the brief;
-- the brief: "Open your report with `Standards:`. Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-- an instruction to end its turn with the findings as its closing message.
+If a finding is a judgement call rather than a documented breach, say which it is; the caller is the one who decides.
 
-**Spec teammate's task** carries:
+## Tracking the review on the board
 
-- the frozen patch path, and the commit list;
-- the path or fetched contents of the spec;
-- the brief: "Open your report with `Spec:`. Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-- an instruction to end its turn with the findings as its closing message.
+When the session has Agent Teams on and this review is part of a team run, put it on the board so it is visible next to the work it reviews: one task per axis with `team_task_create` (`write_scopes` empty, the reviewers write nothing), the axis in the subject, and both tasks unblocked. Each reviewer's brief then carries its task id and the instruction to claim it with `team_task_get` then `team_task_update({ action: 'claim' })` before starting. Complete each task with `team_task_update({ action: 'complete', expected_revision })` when its report lands.
 
-If the spec is missing, spawn only the Standards teammate and record the missing Spec axis in the final report.
-
-Done when every axis you are running has either a spawned teammate (`member.target` with `status` `running` or `inactive`) or a recorded reason it ran unisolated, and each teammate holds the brief above. `inactive` on return only means no turn is executing; it is not a spawn failure and not proof the review finished.
-
-### 5. Collect
-
-Each reviewer's closing message is delivered to you automatically as a settlement notice when its turn ends; it is not a tool result. The notice names the child by session id, which your tools never show, so the axis label at the top of each report is what tells the two apart. An empty closing message arrives as "It left no closing message."
-
-If an active reviewer ends without a report, send it a message asking for the findings. A `failed` or `provisioning` member cannot be messaged at all, so spawn a replacement under a new name or run that axis yourself.
-
-Done when both reports are in hand, or you have recorded which axis produced none and why.
-
-### 6. Aggregate
-
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned, so neither axis can mask the other (see _Why two axes_).
-
-Before writing, re-check `git status --porcelain` and the diff hash against step 1. If either moved, the reviews describe a tree that no longer exists: say so at the top of the report.
-
-End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Each axis gets its own worst issue, which is what keeps the separation from collapsing into a single ranking.
-
-Done when both headings are present, the tree check is recorded, and the summary line is written.
-
-## Why two axes
-
-A change can pass one axis and fail the other:
-
-- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
-
-Reporting them separately stops one axis from masking the other.
+Close the review's tasks before presenting; a review left open on the board reads as work still running.

@@ -1,19 +1,19 @@
 ## What it does
 
-`implement-spec-agentteam` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run, the way [implement-spec](https://aihero.dev/skills-implement-spec) does, but every worker is a durable **teammate** rather than a fire-and-forget [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent). You can list who is running, wait on one member without blocking the rest, wake a member that has gone quiet with a message, and interrupt a member that has gone sideways.
+`implement-spec-agentteam` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run, the way [implement-spec](https://aihero.dev/skills-implement-spec) does. The difference is where the plan lives and what a worker is: the ticket graph is copied onto the shared **task board**, and every worker is a **named subagent** of the Lead that can be messaged, interrupted, and asked follow-ups.
 
-That listability is the defining constraint. On the sibling skill a worker that goes wrong is a worker you abandon: you cannot see it, steer it, or stop it, so the only recovery is to spawn another and repeat the work. Here the Lead steers the worker that is already running, and the ticket graph lives on a **shared task board** that every member reads, so no one has to hold the frontier in their head.
+The board is the defining constraint. It holds the blockers, so the frontier is read from it rather than remembered; it holds advisory write scopes, so two tickets that would collide are visible before either starts; and it holds the owner, so a ticket whose implementer died is not lost. A ticket is complete when its merge landed, which is what unblocks the next ticket the moment the merge happens rather than at the end of the run.
 
 ## When to reach for it
 
 You invoke this by typing `/implement-spec-agentteam`, and the agent won't reach for it on its own.
 
-Reach for it whenever the Agent Teams tools are available in your [harness](https://www.aihero.dev/ai-coding-dictionary/harness). Reach for [implement-spec](https://aihero.dev/skills-implement-spec) when they are not: the two skills run the same task graph and land on the same kind of integration branch, and the one you want is decided by whether your harness can keep durable teammates.
+Reach for it when Agent Teams is on for the session, which you can tell from your tool list: the board tools are `team_task_create`, `team_task_get`, `team_task_list` and `team_task_update`. If they are missing, Agent Teams is off for this session and [implement-spec](https://aihero.dev/skills-implement-spec) runs the same graph without a board.
 
 | Your situation | Reach for |
 | --- | --- |
-| Your harness has Agent Teams, and a spec split into tickets with blocking edges | `/implement-spec-agentteam` |
-| Your harness has no Agent Teams | [implement-spec](https://aihero.dev/skills-implement-spec) |
+| Agent Teams is on, and the spec is split into tickets with blocking edges | `/implement-spec-agentteam` |
+| Agent Teams is off for this session | [implement-spec](https://aihero.dev/skills-implement-spec) |
 | One ticket at a time, in your own [context window](https://www.aihero.dev/ai-coding-dictionary/context-window) | [implement](https://aihero.dev/skills-implement) |
 | A spec that isn't split into tickets yet | [to-tickets](https://aihero.dev/skills-to-tickets) first |
 
@@ -21,32 +21,34 @@ Reach for it whenever the Agent Teams tools are available in your [harness](http
 
 - **An issue tracker.** The skill reads the tickets from, and resolves them on, the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
 - **Tickets with blocking edges**, as [to-tickets](https://aihero.dev/skills-to-tickets) writes them. Without edges the graph is flat and every ticket starts at once.
-- **A harness with Agent Teams enabled.** Every worker being a teammate is the whole point, so on a harness without it this skill has nothing to run.
-- **Room in the team.** One teammate per ticket, one more if you take the exploration pass, plus two slots held back for the closing review. A run already at its cap runs the review in one context instead.
+- **Agent Teams on for the session.** The board tools only exist while it is, and the Lead cannot turn it on itself.
+- **Git worktrees.** Every implementer works in its own checkout, cut from the integration branch tip when its ticket joins the frontier.
 
 ## The exploration pass gates the run
 
 The optional exploration step is optional to *schedule*, not to *wait for*. If you take it, no implementer starts until the explorer's notes exist, because those notes are the thing the implementers read. A run that spawns both at once hands the implementers a note path that does not resolve yet, and every implementer quietly pays to rediscover what was already found.
 
-The notes live in the integration checkout, under a path that checkout ignores, and the explorer reports the absolute path. Later teammates work in their own worktrees, where the same relative path would resolve to the wrong tree, so the absolute path is what makes the notes readable from every one of them.
+The notes live in the integration checkout, under a path that checkout ignores, and the explorer reports the absolute path. Later implementers work in their own worktrees, where the same relative path would resolve to the wrong tree, so the absolute path is what makes the notes readable from every one of them.
 
-## One member per ticket, and the Lead does every merge
+## One worker per ticket, and the Lead does every merge
 
-Each ticket gets a teammate, its own git worktree, and its own branch, and the worktree is cut when the ticket joins the frontier, from the integration branch tip of that moment. A blocked ticket holds no worktree: a base cut before its blockers landed is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict resolution.
+Each ticket gets a worktree cut from the integration branch tip of the moment it joins the frontier, and the [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) is spawned with that path as its working directory. The path is handed over in the spawn call itself, so the isolation is real rather than nominal: a brief that only prefixes its shell commands moves `bash` and leaves `read`, `edit` and `write` pointing at the Lead's checkout.
 
-A teammate starts in the Lead's directory, so the worktree has to be handed to it: the brief carries the absolute path and says to move there as its first action, which is what makes the checkout isolation real rather than nominal.
+A blocked ticket holds no worktree. A base cut before its blockers landed is already behind by the time it starts, and turns a merge that should be a fast-forward into a conflict.
 
-The Lead is the merger. It merges every finished branch into the integration branch in its own checkout, runs the build and tests there, and only then completes the board task, because a second member running Git in that checkout contends on one index that nothing guards. A report goes to the Lead the moment the teammate sends it, and a teammate reporting done is not a ticket landed: the merged state is the only state that counts.
+The Lead is the merger. It merges every finished branch into the integration branch in its own checkout, runs the build and tests there, and only then completes the board task, because a second member running Git in that checkout contends on one index that nothing guards. A report goes to the Lead the moment the implementer sends it, and an implementer reporting done is not a ticket landed: the merged state is the only state that counts.
+
+## The frontier comes from the board
+
+The tracker supplies the starting graph. From then on the frontier is whatever `team_task_list` reports as ready, and a task becomes ready when every task it is blocked by is complete. That is what fixes the shape the tracker cannot: against a tracker whose tickets close when a pull request merges, the blocked-by count stays up for the whole run, so tickets sit blocked even though their blockers landed early.
+
+The board never wakes anyone. A task changing state ends no wait and starts no idle member, so when a member must act on a new task the Lead sends it a message.
 
 ## The closing review needs a clean tree
 
-The run ends with [code-review-agentteam](https://aihero.dev/skills-code-review-agentteam) on the integration branch, out of the two slots held back for it, and it is given the commit the integration branch was cut from as its fixed point. That is what lets an autonomous run review itself without stopping to ask where to start from.
+The run ends with [code-review-agentteam](https://aihero.dev/skills-code-review-agentteam) on the integration branch, with the commit the branch was cut from as its fixed point. That is what lets an autonomous run review itself without stopping to ask where to start from.
 
-That review refuses a dirty tree, and the run keeps the tree clean by construction: the Lead is the only member who commits in the integration checkout, the worktree pool sits in `.git/info/exclude`, and the exploration notes live under a path the checkout ignores. A worker committing in that checkout, or a stray file left in it, is what breaks the closing step.
-
-## The team is a fixed budget
-
-A slot spent on one teammate stays spent, so the run reuses an existing teammate before it spawns a new one: a finished implementer keeps its history, and the next ready ticket goes to it with a message. A new teammate appears only when every existing one is busy.
+That review pins its range to two commit SHAs, so a dirty tree does not corrupt the review, but the run still keeps the integration checkout clean by construction: the Lead is the only member who commits there, implementers work in their own worktrees, and a stray file left in the integration checkout is what breaks the final commit.
 
 ## Common questions
 
@@ -54,17 +56,15 @@ A slot spent on one teammate stays spent, so the run reuses an existing teammate
 
 A worktree is a complete *checkout*, not a complete [environment](https://www.aihero.dev/ai-coding-dictionary/environment). Anything the repo deliberately keeps untracked does not come with it: gitignored fixtures, local databases, large corpora, credentials. One user hit exactly this, and the test was written to skip itself when its corpus was absent, which is the right behaviour for a clean checkout and CI. The ticket whose whole purpose was to re-read that corpus would have gone green having tested nothing.
 
-The run keeps every worker in its own worktree, because the integration checkout has to stay clean for the closing review, so there is no main-checkout branch to fall back on. Catch it when you read the ticket instead: a ticket whose verification needs untracked material either gets that material committed or generated by a setup step the worktree can run, or it runs outside this skill, one ticket at a time with [implement](https://aihero.dev/skills-implement). A test that skips itself when its material is missing goes green either way, so the ticket has to say which case it is.
+The fix belongs in the ticket: a ticket whose verification needs untracked material either gets that material committed, or generated by a setup step its worktree can run, or it runs outside this skill, one ticket at a time with [implement](https://aihero.dev/skills-implement). A test that skips itself when its material is missing goes green either way, so the ticket has to say which case it is.
 
-**A worker's edits landed in the integration checkout, not its worktree.**
+**An implementer's edits landed in the integration checkout.**
 
-A teammate starts in the Lead's directory, so a brief that only prefixes shell commands moves `bash` and leaves `read`, `edit` and `write` pointing at the wrong tree. The brief carries the worktree's absolute path and the working-directory call that moves all four together, and that call is the teammate's first action.
+It was spawned without a working directory, or its brief only prefixed shell commands. Pass `cwd` in the spawn call and put the path in the brief as well, with the instruction to stay inside it. The prompt is what keeps it there; the working directory is what makes `read`, `edit` and `write` agree with `bash`.
 
-**Blocked tickets never unblock, even after their blocker merged.**
+**Blocked tickets never unblocked, even after their blocker merged.**
 
-Against a tracker whose tickets close when the pull request merges, the blocked-by count stays up for the whole run, because the run ends at the merge. On a four-ticket graph one run watched two tickets sit blocked the entire time though their blocker had merged early.
-
-The board is what fixes this. The tracker supplies the starting graph; from then on the frontier comes from the board, where a ticket is done once its merge has landed. That is also why the Lead closes the board task at the merge rather than the implementer closing it on report: the merged state is the only state that counts.
+Either the blocker's task was never completed, or the dependency was written against tracker ids. `blocked_by` takes board task ids. The Lead completes the blocker's task in the same breath as the merge, which is what makes the dependents ready.
 
 **The review loop kept going for hours, and kept finding things.**
 
@@ -72,11 +72,11 @@ This is the known shape of an unbounded review loop: the fix commit changes the 
 
 **Some implementers collided on the same file.**
 
-Worktrees postpone collisions to merge time rather than preventing them. A blocking edge written from ticket text is a guess about which files a ticket touches, and two tickets on "different parts of the codebase" still share a string catalogue or a config registry. The board warns only about tasks that are already in progress, so at staffing time it says nothing about the batch you are about to start: read the ready tasks' write scopes and staff a set that is disjoint from each other and from the work in flight. A collision that survives to the merge is a conflict even when the two worktrees never touched. The other fix is to have the exploration notes pin the exact names each ticket adds. This is the same advice as its sibling skill, and it is the reason the exploration pass is worth taking.
+Worktrees postpone collisions to merge time rather than preventing them. A blocking edge written from ticket text is a guess about which files a ticket touches, and two tickets on "different parts of the codebase" still share a string catalogue or a config registry. The board warns only about tasks already in progress, so at staffing time it says nothing about the batch you are about to start: read the ready tasks' write scopes and start a set that is disjoint from each other and from the work in flight. A collision that survives to the merge is a conflict even when the two worktrees never touched.
 
-**A teammate died mid-ticket. What happens to its task?**
+**An implementer died mid-ticket. What happens to its task?**
 
-Ownership is never released automatically, so the task stays in progress under the dead name. The two failures look different, and the difference decides what to do: a creation that failed shows `failed` with the error in `diagnostics` and never claimed anything, while a member that died after claiming shows `inactive` with no report. Either way the recovery is a replacement under a new name, with the task reassigned to it, because names are never reused. An interrupted member is a different case and keeps its history, which is why it is the cheapest way to fix its own work.
+The task stays in progress under the dead member, because ownership is never released automatically. Reassign it to a replacement with `team_task_update({ action: 'reassign', owner })`, which only the Lead can do, and give the replacement a new name: a name is unique among the Lead's children, and the dead one still holds its own. The replacement reads the dead member's branch before starting, so the work is not thrown away.
 
 **Cleanup failed and left every worktree behind.**
 
@@ -84,17 +84,16 @@ A compound `git worktree remove … && git branch -d …` dies as a whole when t
 
 ## It's working if
 
-- Every teammate you need is visible in one list, and you can say which ticket each one holds.
-- You steer a teammate that went wrong instead of respawning it, and its history comes with it.
-- The number of members you created is the number you budgeted at the start, not one more per ticket.
+- Every running implementer appears in one list, and you can say which board task each one holds.
 - The frontier comes from the board, so a ticket unblocks the moment its merge lands rather than at the end of the run.
 - A worktree appears when its ticket joins the frontier, cut from the branch tip of that moment, and never sits waiting on a blocker.
 - No implementer started before the exploration notes existed.
-- Every worker wrote into its own worktree.
+- Every implementer's `read`, `edit` and `write` resolved inside its own worktree.
 - Every merge happened in the Lead's checkout, and every board task closed after it.
+- You steer an implementer that went wrong instead of respawning it, and its history comes with it.
 
 ## Where it fits
 
-The Agent Teams half of the implementation flow: the pick when your harness has durable teammates, with [implement-spec](https://aihero.dev/skills-implement-spec) as its plain-sub-agent sibling. It closes out on the integration branch with [code-review-agentteam](https://aihero.dev/skills-code-review-agentteam), which runs the two review axes as teammates.
+The Agent Teams half of the implementation flow: the pick when Agent Teams is on for the session, with [implement-spec](https://aihero.dev/skills-implement-spec) as its plain-subagent sibling. It closes out on the integration branch with [code-review-agentteam](https://aihero.dev/skills-code-review-agentteam), which runs the two review axes as named subagents.
 
 [ask-matt](https://aihero.dev/skills-ask-matt) routes over the whole set.

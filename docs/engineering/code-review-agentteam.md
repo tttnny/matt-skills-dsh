@@ -2,23 +2,26 @@
 
 `code-review-agentteam` reviews the diff between `HEAD` and a fixed point you name (a commit, a branch, a tag, `main`, `HEAD~5`) along two axes, the way [code-review](https://aihero.dev/skills-code-review) does. **Standards** asks whether the code follows how this repo writes code. **Spec** asks whether the code does what the originating issue or [spec](https://www.aihero.dev/ai-coding-dictionary/spec) asked for.
 
-Every reviewer is a durable **teammate**, so you can list both, wait on one without blocking the other, and interrupt a reviewer that has gone sideways. That matters more here than it does in an implementation run, because a reviewer can wander: asked to find problems, it will always find some, and a review you cannot stop is a review that keeps billing. Both reviewers read the same frozen diff, so the tree cannot move under them. When the team is already at its cap, the two axes run one after the other in one context, and the report says they ran unisolated.
+Each axis runs as its own [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent), and each one is **named**: `standards-reviewer` and `spec-reviewer`. That name is the whole difference from the plain sibling. You can ask a reviewer a follow-up question while it still has the diff in context, and you can stop one that has wandered past the diff. A review you cannot steer is a review that keeps billing.
+
+The diff is pinned to two commit SHAs, the fixed point and the current `HEAD`, and both reviewers are given that range spelled out. Whatever happens to the working tree afterwards cannot change what they read, which matters when the review runs as the closing step of an [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) run.
 
 ## When to reach for it
 
-Type `/code-review-agentteam`, or the agent reaches for it automatically when a task fits, which is what lets [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) call it as its closing step. The Lead runs it: only the Lead can spawn or interrupt a member, so a teammate that needs this review asks the Lead for it.
+Type `/code-review-agentteam`, or the agent reaches for it automatically when a task fits, which is what lets [implement-spec-agentteam](https://aihero.dev/skills-implement-spec-agentteam) call it as its closing step. Whoever runs it spawns the reviewers, so an agent running inside a team can run it too, subject to its delegation depth.
 
 | Your situation | Reach for |
 | --- | --- |
 | Reviewing a diff on a [harness](https://www.aihero.dev/ai-coding-dictionary/harness) with Agent Teams | `/code-review-agentteam` |
 | Reviewing a diff anywhere else | [code-review](https://aihero.dev/skills-code-review) |
 | A single ticket's work before it lands | [implement](https://aihero.dev/skills-implement), which runs both axes per ticket |
-| A team already at its cap | `/code-review-agentteam`, which then runs both axes in one context and says so in the report |
+| A finding you want explained rather than re-read | `/code-review-agentteam`, where the reviewer is still there to ask |
 
 ## Prerequisites
 
-- **An issue tracker.** The review's Spec axis reads the originating issue from the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
-- **A non-empty diff against a ref that resolves, from a clean tree.** The ref, the diff and the tree are checked before any reviewer is spawned, so a typo in the fixed point fails immediately instead of inside two members. The reviewers can write to your checkout, so the diff is frozen first: the patch goes to a git-ignored path or outside the checkout, and its hash is recorded. Both reviewers read that artifact rather than a command that re-reads a live tree, and the hash is checked again before the reports are presented.
+- **An issue tracker.** The Spec axis reads the originating issue from the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
+- **A non-empty diff against a ref that resolves.** Both ends are resolved before any reviewer is spawned, so a typo in the fixed point fails immediately instead of inside two children.
+- **A checkout the reviewers leave alone.** They hold `edit` and `write` and work in the same directory tree as you, so both briefs say to review only and commit nothing.
 
 ## The two axes stay separate
 
@@ -34,15 +37,15 @@ That same discipline is what makes the output usable. A findings list that separ
 
 **The reviewers wrote a full essay instead of a findings list.**
 
-Both briefs cap the report at the length the findings need and nothing more, and both ask for the finding with its location and the standard or spec line it breaks. Where a reviewer padded, the brief is what to tighten, not the reviewer's enthusiasm.
+Both briefs cap the report at the length the findings need and nothing more, and both ask for the finding with its location and the standard or spec line it breaks. Where a reviewer padded, the brief is what to tighten. Once the review is running, `send_message` to the reviewer costs one message and no re-reading.
 
 **One reviewer found nothing, and I don't believe it.**
 
-Ask the reviewer rather than respawning a fresh one: a teammate answers, and a fresh teammate redoes the reading from scratch. The one thing worth checking first is whether it got the material it was owed. The Standards reviewer needs the standards file list, and the Spec reviewer needs the spec text; if the spec is missing entirely, the skill spawns only the Standards reviewer and says so in the report.
+Ask the reviewer rather than spawning a fresh one: it answers, and a fresh child redoes the reading from scratch. The one thing worth checking first is whether it got the material it was owed. The Standards reviewer needs the standards file list, and the Spec reviewer needs the spec text; if the spec is missing entirely, the skill spawns only the Standards reviewer and says so in the report.
 
-**A reviewer never appeared, and the spawn failed on the team member limit.**
+**A spawn failed.**
 
-Check the roster before re-firing: two spawns can partially succeed, so one axis may already be running. Re-fire only the axis that is missing. A provider failure leaves a `failed` row with its error in `diagnostics` and burns that name, so the retry needs a new one, and the failed creation still counts against the cap. When the team has no room at all, run the missing axis in one context and say in the report that it ran unisolated. A member stuck in `provisioning` cannot be messaged either, so the same choice applies there: a new name, or run the axis yourself.
+Retry that axis once: two spawns can partially succeed, so one axis may already be running, and only the missing one is worth re-firing. If it fails again, run that axis in your own context and say so in the report, so the reader knows the two reports were not produced under the same isolation.
 
 **The Standards review flagged things the linter already enforces.**
 
@@ -54,13 +57,13 @@ That is the design, not a failure. The two axes are deliberately separate, so th
 
 ## It's working if
 
-- Both reviewers are visible in one list while they run, and you can stop either one.
+- Both reviewers exist as named agents while they run, and you can stop either one.
+- A follow-up question goes to the reviewer that raised the finding, not to a new one.
 - The two reports arrive under their own headings, neither summarising the other.
 - Findings you act on name their location and the rule or spec line they break.
 - A finding the repo's own tooling already enforces never appears.
 - You can tell, from the report alone, which findings are hard violations and which are judgement calls.
-- Both reviewers started on the same frozen diff.
-- Where the axes shared one context, the report says they ran unisolated.
+- Both reviewers read the same pair of commit SHAs.
 
 ## Where it fits
 

@@ -1,3 +1,3 @@
 interface:
   display_name: "Code Review (Agent Teams)"
-  short_description: "Two-axis review (Standards + Spec) run as DSH Agent Teams teammates"
+  short_description: "Two-axis review (Standards + Spec) with each axis run as a named subagent"
