@@ -7,7 +7,7 @@ Interview the user relentlessly until you reach a shared understanding. Map this
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-Each round is a single `grilling_form` call, How each question should be written and which approaches will be rejected immediately are governed by the tool's own instructions. The entire frontier enters this one call, so don't write the round as prose.
+Each round is a single `grilling_form` call. How each question should be written, and which approaches the tool rejects immediately, are governed by the tool's own instructions. The entire frontier enters this one call, so don't write the round as prose.
 
 The round does **not** end when input is rejected: fix according to the violation list and resubmit the same call. Rejection never justifies a prose rewrite: do not revert to prose.
 
