@@ -1,3 +1,5 @@
+This repo's skills are adapted specifically for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH). The DSH source is checked out locally at `/Users/tny/Desktop/work/other/deepseek-harness`.
+
 Skills are organized into bucket folders under `skills/`:
 
 - `engineering/`: daily code work
