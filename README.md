@@ -1,9 +1,9 @@
-# matt-skills-dsh
+# matt-skills-lynn
 
-本仓库的 skills 适配了 [dsh-grilling-form](https://github.com/tttnny/my-dsh/tree/main/plugins/dsh-grilling-form) 。
+Matt Pocock 的 agent skills，加上几处工作流增强。
 
 安装：
 
 ```bash
-npx skills@latest add tttnny/matt-skills-dsh
+npx skills@latest add tttnny/matt-skills-lynn
 ```

@@ -1,5 +1,3 @@
-This repo's skills are adapted specifically for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH). The DSH source is checked out locally at `/Users/tny/Desktop/work/other/deepseek-harness`.
-
 Skills are organized into bucket folders under `skills/`:
 
 - `engineering/`: daily code work
@@ -12,7 +10,7 @@ Every skill in `engineering/` or `productivity/` (the **promoted** buckets) must
 
 The top-level `README.md` is a short landing page (title, one line on what the set is for, install block) and deliberately lists no skills: the per-bucket `README.md`s below `skills/` are the index, and the published docs pages are the human-facing reference. A promoted skill therefore owes its entry to its bucket `README.md`, not to the top-level one.
 
-Install commands are copied verbatim from [.agents/install-block.md](./.agents/install-block.md). `.claude-plugin/marketplace.json` is the repo's own marketplace. Every agent except Claude Code installs from it to get automatic updates, and Claude Code uses `claude-plugins-official`. Run `claude plugin validate . --strict` after touching either manifest. [ADR 0002](./.agents/adr/0002-ship-as-a-claude-code-plugin.md) records why. The exception is the repo name: every route in that block installs upstream's skills (`mattpocock/skills`, and `claude-plugins-official` for Claude Code), so this repo's own install lines name `tttnny/matt-skills-dsh` instead, and the top-level `README.md` carries only that skills.sh line.
+Install commands are copied verbatim from [.agents/install-block.md](./.agents/install-block.md). `.claude-plugin/marketplace.json` is the repo's own marketplace. Every agent except Claude Code installs from it to get automatic updates, and Claude Code uses `claude-plugins-official`. Run `claude plugin validate . --strict` after touching either manifest. [ADR 0002](./.agents/adr/0002-ship-as-a-claude-code-plugin.md) records why. The exception is the repo name: every route in that block installs upstream's skills (`mattpocock/skills`, and `claude-plugins-official` for Claude Code), so this repo's own install lines name `tttnny/matt-skills-lynn` instead, and the top-level `README.md` carries only that skills.sh line.
 
 Each bucket folder has a `README.md` that lists every skill in the bucket with a one-line description, with the skill name linked to its `SKILL.md`. The promoted buckets' `README.md`s group entries into **User-invoked** and **Model-invoked**; non-promoted bucket `README.md`s (`misc/`, `in-progress/`) use a flat list.
 

@@ -5,7 +5,7 @@ Beta. These skills are public on purpose: try them and tell me what breaks. They
 The plugin won't give you these. Install one directly:
 
 ```bash
-npx skills@latest add tttnny/matt-skills-dsh --skill=<name>
+npx skills@latest add tttnny/matt-skills-lynn --skill=<name>
 ```
 
 - **[loop-me](./loop-me/SKILL.md)**: Grill yourself into implementable workflow specs over multiple sessions, using the current directory as a stateful workspace. User-invoked.

@@ -18,19 +18,13 @@ Typing `/grilling` directly gets you the plain interview and nothing else. Where
 | A question that talking cannot settle: how something should look or feel | [prototype](https://aihero.dev/skills-prototype): build the throwaway version, then come back |
 | A skill of your own that needs an interview | Invoke `/grilling` from it, rather than writing another interview |
 
-## Prerequisites
-
-The round is delivered as a form, which needs the [dsh-grilling-form](https://github.com/tttnny/my-dsh/tree/main/plugins/dsh-grilling-form) plugin installed in your harness. Without it the skill has no shape to ask a round in. The skill leaves the form's mechanics to the tool itself: the field semantics, the wordings the tool rejects, and the shape of the answer block all come from the tool's own description, so the skill body does not have to follow every change to the form.
-
 ## The round, the frontier, and who decides
 
 The skill rests on three ideas.
 
 The **design tree** is the model of the subject: decisions with decisions hanging off them. The **frontier** is the set of decisions whose prerequisites are all settled: the only questions the agent can ask yet. A **round** is one frontier, asked in full and answered in full.
 
-Inside a round, the questions arrive as a form rather than as prose: one entry per question, each with a short number and title, and, where the question has candidates, the answers with the recommended one listed first and already selected. Accepting a recommendation therefore costs nothing, and a question with no candidates gives you a free-text box instead. The shape exists so you can answer a round by number ("1 yes, 2 the second option, 3 no, here's why") instead of quoting questions back. One consequence is worth knowing: the round is not over when the form appears, because you send the answers yourself and they reach the agent as your next message.
-
-The form inherits one known problem from the prose version. The recommendation sometimes argues *against* the question as it was worded, so agreeing with the recommendation means answering "no" to the question. When that happens, answer the recommendation and say so.
+Inside a round, every question has a fixed format: numbered and titled behind a `❓`, then the body, then the agent's recommended answer alone on a `➡️` line. This format lets you answer a round by number ("1 yes, 2 the second option, 3 no, here's why") instead of by quoting questions back. The format has one known problem. The recommendation sometimes argues *against* the question as it was worded, so agreeing with the recommendation means answering "no" to the question. When that happens, answer the recommendation and say so.
 
 The other half of the design is the split between facts and decisions. Facts are the skill's own job. When a frontier question needs something the [environment](https://www.aihero.dev/ai-coding-dictionary/environment) can settle, the agent dispatches a [sub-agent](https://www.aihero.dev/ai-coding-dictionary/subagent) to find out rather than asking you. The round does not wait for that research; only the questions that depend on it wait. Decisions are yours, and the agent must wait for them. An agent running `grilling` that answers its own decisions has broken the skill. The session ends when the frontier is empty **and** every sub-agent the session dispatched has reported: a research task still running is an unsettled prerequisite, so an empty frontier on its own is not enough. The agent then waits for you to confirm a shared understanding before it acts on what you agreed.
 
@@ -49,7 +43,7 @@ This page covers the mechanism. The wrapper skills' pages answer the questions p
 ## Common questions
 
 **Can I go back to one question at a time?**
-Yes, and a large part of the audience does. A round is one form, so one question at a time means a form holding a single question. Add this to your global `CLAUDE.md`:
+Yes, and a large part of the audience does. Add this to your global `CLAUDE.md`:
 
 ```
 When grilling, ask one question at a time.
@@ -80,8 +74,7 @@ This is a real bug, still unfixed, and users report it across [harnesses](https:
 
 ## It's working if
 
-- A round arrives as a form, one entry per question, the recommended option already selected, and you can answer the whole round by number.
-- The form is the round: no second copy of the questions in prose beside it, and nothing else from that turn lands after it.
+- A round arrives as a numbered list, each question with its recommendation on a separate `➡️` line, and you can answer the whole round by number.
 - Nothing in a round needs another question in the same round answered first.
 - Later rounds ask things the first round could not have asked.
 - It goes and looks facts up (reading files, dispatching a sub-agent) rather than asking you something it could have found out.
